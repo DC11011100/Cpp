@@ -1,0 +1,2 @@
+Press 'q' to quit
+Press 'c' to capture image sample
