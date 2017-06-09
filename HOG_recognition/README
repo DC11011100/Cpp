@@ -1,7 +1,9 @@
 FACIAL RECOGNITION
 Faces are detected and stored using the 'c' command.
-Face
+Pressing 'c' then crops, histogram equalizes, and stores a sample image into "./training_samples"
+Histogram Equalization helps diminish the influence of varied light conditions.
 
 VERSIONS
 OpenCV 
 C++
+g++
