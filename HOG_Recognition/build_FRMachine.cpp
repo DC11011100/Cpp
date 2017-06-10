@@ -86,22 +86,20 @@ int main(int argc, char** argv) {
 
 
               // HOG opencv ex
-              /*
-              const Size size = Size(1280,720);
-              resize(bw_sample, bw_sample, size ); // Note: Other sizes possible
+              resize(cropped_face, cropped_face, Size(64,128) );
+              
               HOGDescriptor hog;
-              hog.winSize = size;
+              hog.winSize = cropped_face.size();;
+
               Mat gray;
               vector< Point > location;
               vector< float > descriptors; 
-
+              
               //cvtColor( bw_sample, gray, COLOR_BGR2GRAY );
               //resize(bw_sample, bw_sample, Size(1280,720) ); // Note: Other sizes possible
-              hog.compute( bw_sample, descriptors, size, Size( 0, 0 ), location );
-              imshow( "gradient", get_hogdescriptor_visu( bw_sample.clone(), descriptors, size ) );
-              */
-              
-              
+              //hog.compute( bw_sample, descriptors, size, Size( 0, 0 ), location );
+              hog.compute( cropped_face, descriptors, Size(8,8), Size(0,0), location );
+              imshow( "gradient", get_hogdescriptor_visu( cropped_face.clone(), descriptors, hog.winSize ) );
               break;
           }
       }

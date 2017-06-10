@@ -1,1 +1,1 @@
-Number of samples = 0
+Number of samples = 1
