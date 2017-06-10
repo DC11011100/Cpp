@@ -20,6 +20,7 @@ void show_instructions(void);
 void generate_DB_HOGs(char* db_path, char* sample_file, int Nsamples);
 Mat get_hogdescriptor_visu(const Mat& color_origImg, vector<float>& descriptorValues, const Size & size );
 vector <Rect>  detectAndDisplay( Mat frame, Mat frame_gray, CascadeClassifier face_cascade );
+void train_svm( const vector< Mat > & gradient_lst, const vector< int > & labels )
 //-------------------------------------------------------------------------------------------------
 int main(int argc, char** argv) { 
     // NOTE: Unstable! Will crash for numbers with more than 24-digits
@@ -45,6 +46,8 @@ int main(int argc, char** argv) {
     if( !face_cascade.load( PATH_FACE_CASCADE ) ){ printf("--(!)Error loading\n"); return -1; };
     
   // Start video capture
+  Vector < Mat > gradients;
+  Vector < int > labels;
   Mat bw_sample, frame;
   vector< Rect > face;
   for(;;)
@@ -69,6 +72,8 @@ int main(int argc, char** argv) {
               
               // Collect HOG data
               //generate_DB_HOGs("./training_samples", "dcface_", 1);
+              // CONTINUE HERE : Finish SVM training
+
               fprintf(f_trainingInfo, sample_info);
               fclose(f_trainingInfo);
               return 0;
@@ -86,19 +91,20 @@ int main(int argc, char** argv) {
 
 
               // HOG opencv ex
-              resize(cropped_face, cropped_face, Size(64,128) );
-              
-              HOGDescriptor hog;
-              hog.winSize = cropped_face.size();;
-
               Mat gray;
+              HOGDescriptor hog;
               vector< Point > location;
               vector< float > descriptors; 
               
-              //cvtColor( bw_sample, gray, COLOR_BGR2GRAY );
-              //resize(bw_sample, bw_sample, Size(1280,720) ); // Note: Other sizes possible
-              //hog.compute( bw_sample, descriptors, size, Size( 0, 0 ), location );
-              hog.compute( cropped_face, descriptors, Size(8,8), Size(0,0), location );
+              // Resize for uniform comparison
+              resize(cropped_face, cropped_face, Size(128,128) );
+              hog.winSize = cropped_face.size();;
+
+              // Compute HOG data and append to gradient list
+              hog.compute( cropped_face, descriptors, Size(32,32), Size(0,0), location );
+              gradients.push_back( Mat(descriptors.clones() ) );
+
+              // Visualize HOG descriptors
               imshow( "gradient", get_hogdescriptor_visu( cropped_face.clone(), descriptors, hog.winSize ) );
               break;
           }
@@ -345,4 +351,28 @@ vector <Rect> detectAndDisplay(Mat frame, Mat frame_gray, CascadeClassifier face
   }
   
   return faces;
+}
+
+// Example from OpenCV2 SDK
+void train_svm( const vector< Mat > & gradient_lst, const vector< int > & labels )
+{
+    Mat train_data;
+    convert_to_ml( gradient_lst, train_data );
+
+    clog << "Start training...";
+    Ptr<SVM> svm = SVM::create();
+    /* Default values to train SVM */
+    svm->setCoef0(0.0);
+    svm->setDegree(3);
+    svm->setTermCriteria(TermCriteria( CV_TERMCRIT_ITER+CV_TERMCRIT_EPS, 1000, 1e-3 ));
+    svm->setGamma(0);
+    svm->setKernel(SVM::LINEAR);
+    svm->setNu(0.5);
+    svm->setP(0.1); // for EPSILON_SVR, epsilon in loss function?
+    svm->setC(0.01); // From paper, soft classifier
+    svm->setType(SVM::EPS_SVR); // C_SVC; // EPSILON_SVR; // may be also NU_SVR; // do regression task
+    svm->train(train_data, ROW_SAMPLE, Mat(labels));
+    clog << "...[done]" << endl;
+
+    svm->save( "my_people_detector.yml" );
 }
