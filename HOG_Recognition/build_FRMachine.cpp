@@ -11,13 +11,15 @@
 #include <stdio.h>
 #include <string.h>
 //-------------------------------------------------------------------------------------------------
+#define PATH_FACE_CASCADE "./HAAR_faceData/haarcascade_frontalface_alt.xml"
+//-------------------------------------------------------------------------------------------------
 using namespace std;
 using namespace cv;
 //-------------------------------------------------------------------------------------------------
 void show_instructions(void);
 void generate_DB_HOGs(char* db_path, char* sample_file, int Nsamples);
 Mat get_hogdescriptor_visu(const Mat& color_origImg, vector<float>& descriptorValues, const Size & size );
-
+vector <Rect>  detectAndDisplay( Mat frame, Mat frame_gray, CascadeClassifier face_cascade );
 //-------------------------------------------------------------------------------------------------
 int main(int argc, char** argv) { 
     // NOTE: Unstable! Will crash for numbers with more than 24-digits
@@ -31,29 +33,38 @@ int main(int argc, char** argv) {
     // Show instructions
     show_instructions();
 
-    // Load up training data info
+    // Load up training data info HOG
     int Nsamples = -1;
     FILE* f_trainingInfo = fopen("./training_samples/info.txt", "r");
     assert(f_trainingInfo != NULL);
     fscanf(f_trainingInfo, "Number of samples = %d\n", &Nsamples);
     fclose(f_trainingInfo);
+
+    // Load up face detection cascades for face localization HAAR
+    CascadeClassifier face_cascade;
+    if( !face_cascade.load( PATH_FACE_CASCADE ) ){ printf("--(!)Error loading\n"); return -1; };
     
   // Start video capture
   Mat bw_sample, frame;
-  namedWindow("edges",1);
+  vector< Rect > face;
   for(;;)
   {
       cap >> frame;                   // Capture frame
       if (frame.empty()) continue;    // Skipe empty frames
-      cvtColor(frame, bw_sample, COLOR_BGR2GRAY);
-      imshow("Press 'c' to capture sample", bw_sample);
-  
+      
+      // Get gray scale image and Histogram Equalize to diminish lighting influences
+      cvtColor( frame, bw_sample, CV_BGR2GRAY );
+      equalizeHist( bw_sample, bw_sample);
+      
+      // Detect faces
+      face = detectAndDisplay( frame, bw_sample, face_cascade);
+      imshow("Press 'c' to capture sample", frame);
       switch(waitKey(30)) {
           case 'q':
           {
               // Save modified number of samples
               sprintf(sample_info, "Number of samples = %d\n", Nsamples);
-              FILE* f_trainingInfo = fopen("./training_samples/info.txt", "w");
+              FILE* f_trainingInfo = fopen("./training_samples/info.txt", "w+");
               assert(f_trainingInfo != NULL);
               
               // Collect HOG data
@@ -64,13 +75,18 @@ int main(int argc, char** argv) {
           }
           case 'c':
           {   
-              // Sample image captured, store to training data
+              // Crop/Sample the detected face, store the HEQ-GrayScale cropped image for training data
               sprintf(sample_name, "./training_samples/dcface_%d.png", ++Nsamples);
-              imwrite(sample_name, bw_sample);
-              printf("Size of image = %lux%lu\n", bw_sample.size().width, bw_sample.size().height);
+              Mat cropped_face = bw_sample(face[0]);  // Gray scale and Histogram-Equalized
+
+              imshow("Grayscale & Histogram-Equalized Sampled face", cropped_face);
+              imwrite(sample_name, cropped_face);
+              printf("Face located @ (%d,%d)\n", face[0].x, face[0].y);
+              printf("Size of image = %lux%lu\n", face[0].width, face[0].height);
+
 
               // HOG opencv ex
-
+              /*
               const Size size = Size(1280,720);
               resize(bw_sample, bw_sample, size ); // Note: Other sizes possible
               HOGDescriptor hog;
@@ -83,6 +99,7 @@ int main(int argc, char** argv) {
               //resize(bw_sample, bw_sample, Size(1280,720) ); // Note: Other sizes possible
               hog.compute( bw_sample, descriptors, size, Size( 0, 0 ), location );
               imshow( "gradient", get_hogdescriptor_visu( bw_sample.clone(), descriptors, size ) );
+              */
               
               
               break;
@@ -307,3 +324,27 @@ Mat get_hogdescriptor_visu(const Mat& color_origImg, vector<float>& descriptorVa
 
 } // get_hogdescriptor_visu
 
+// Uses HAAR cascades to detect faces. Also returns the Grayscale convervted frame
+vector <Rect> detectAndDisplay(Mat frame, Mat frame_gray, CascadeClassifier face_cascade )
+{
+  std::vector<Rect> faces;
+
+  //-- Detect faces
+  face_cascade.detectMultiScale( frame_gray, faces, 1.1, 2, 0|CV_HAAR_SCALE_IMAGE, Size(30, 30) );
+  if ( faces.size() > 1) 
+  {
+      printf("Only one face at time!\n");
+      return vector<Rect>();
+  } 
+  
+  // Display square around all faces 
+  for (int i=0; i<faces.size(); i++)
+  {
+      Point TL_corner( faces[i].x, faces[i].y );
+      Point TR_corner( faces[i].x + faces[i].width, faces[i].y + faces[i].height );
+      if( i == 0) rectangle( frame, TL_corner, TR_corner, Scalar(0,255, 0), 4, 8, 0 );
+      else        rectangle( frame, TL_corner, TR_corner, Scalar(255,0, 0), 4, 8, 0 );
+  }
+  
+  return faces;
+}
