@@ -103,6 +103,29 @@ int main(int argc, char** argv) {
             }
             case 'n':
             {
+                /*
+                // Crop/Sample the detected face, store the HEQ-GrayScale cropped image for training data
+                sprintf(sample_name, "./training_samples/neg_%d.png", ++NNsamples);
+                
+                // Sample negative image
+                Mat neg_face = bw_sample(face[0]);  // Gray scale and Histogram-Equalized
+
+                // Show the cropped out, histogram-equalized face
+                imshow("Grayscale & Histogram-Equalized Sampled face", cropped_face);
+                imwrite(sample_name, cropped_face);
+                printf("Face located @ (%d,%d)\n", face[0].x, face[0].y);
+                printf("Size of image = %dx%d\n", face[0].width, face[0].height);
+                
+                // Append another HOG Entry
+                Mat gray;
+                HOGDescriptor hog;
+                vector< Point > location;
+                vector< float > descriptors; 
+                push_HOG(p_gradients, cropped_face, hog, location, descriptors);
+
+                // Visualize HOG descriptors
+                imshow( "HOG visual of sample", get_hogdescriptor_visu( cropped_face.clone(), descriptors, hog.winSize ) );
+                */
                 break;
             }
         }

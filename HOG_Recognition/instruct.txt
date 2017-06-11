@@ -1,2 +1,3 @@
 Press 'q' to quit
-Press 'c' to capture image sample
+Press 'p' to capture (-) sample image
+Press 'n' to capture (+) sample image
