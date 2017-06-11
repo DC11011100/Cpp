@@ -18,14 +18,14 @@ using namespace cv;
 //-------------------------------------------------------------------------------------------------
 void show_instructions(void);
 void generate_DB_HOGs(char* db_path, char* sample_file, int Nsamples);
-Mat get_hogdescriptor_visu(const Mat& color_origImg, vector<float>& descriptorValues, const Size & size );
-vector <Rect>  detectAndDisplay( Mat frame, Mat frame_gray, CascadeClassifier face_cascade );
-void train_svm( const vector< Mat > & gradient_lst, const vector< int > & labels )
+Mat get_hogdescriptor_visu(const Mat & color_origImg, vector < float > & descriptorValues, const Size & size );
+vector <Rect> detectAndDisplay( Mat frame, Mat frame_gray, CascadeClassifier face_cascade );
+void train_svm( const vector< Mat > & gradient_lst, const vector< int > & labels );
+void push_HOG(vector < Mat > & gradients, Mat & roi, HOGDescriptor & hog, vector < Point > & location, vector < float > & descriptors); 
 //-------------------------------------------------------------------------------------------------
 int main(int argc, char** argv) { 
     // NOTE: Unstable! Will crash for numbers with more than 24-digits
     char sample_name[32] = {0};
-    char sample_info[64] = {0};
 
     // Activate default native camera
     VideoCapture cap(0);
@@ -35,86 +35,83 @@ int main(int argc, char** argv) {
     show_instructions();
 
     // Load up training data info HOG
-    int Nsamples = -1;
+    int NPsamples = -1;
     FILE* f_trainingInfo = fopen("./training_samples/info.txt", "r");
     assert(f_trainingInfo != NULL);
-    fscanf(f_trainingInfo, "Number of samples = %d\n", &Nsamples);
+    fscanf(f_trainingInfo, "Number of samples = %d\n", &NPsamples);
     fclose(f_trainingInfo);
 
     // Load up face detection cascades for face localization HAAR
     CascadeClassifier face_cascade;
     if( !face_cascade.load( PATH_FACE_CASCADE ) ){ printf("--(!)Error loading\n"); return -1; };
     
-  // Start video capture
-  Vector < Mat > gradients;
-  Vector < int > labels;
-  Mat bw_sample, frame;
-  vector< Rect > face;
-  for(;;)
-  {
-      cap >> frame;                   // Capture frame
-      if (frame.empty()) continue;    // Skipe empty frames
-      
-      // Get gray scale image and Histogram Equalize to diminish lighting influences
-      cvtColor( frame, bw_sample, CV_BGR2GRAY );
-      equalizeHist( bw_sample, bw_sample);
-      
-      // Detect faces
-      face = detectAndDisplay( frame, bw_sample, face_cascade);
-      imshow("Press 'c' to capture sample", frame);
-      switch(waitKey(30)) {
-          case 'q':
-          {
-              // Save modified number of samples
-              sprintf(sample_info, "Number of samples = %d\n", Nsamples);
-              FILE* f_trainingInfo = fopen("./training_samples/info.txt", "w+");
-              assert(f_trainingInfo != NULL);
-              
-              // Collect HOG data
-              //generate_DB_HOGs("./training_samples", "dcface_", 1);
-              // CONTINUE HERE : Finish SVM training
+    // Start video capture
+    vector < Mat > p_gradients;
+    vector < Mat > n_gradients;
+    vector < int > labels;
+    Mat bw_sample, frame;
+    vector< Rect > face;
+    for(;;)
+    {
+        cap >> frame;                   // Capture frame
+        if (frame.empty()) continue;    // Skipe empty frames
+        
+        // Get gray scale image and Histogram Equalize to diminish lighting influences
+        cvtColor( frame, bw_sample, CV_BGR2GRAY );
+        equalizeHist( bw_sample, bw_sample);
+        
+        // Detect faces
+        face = detectAndDisplay( frame, bw_sample, face_cascade);
+        imshow("Press 'c' to capture sample", frame);
+        switch(waitKey(30)) {
+            case 'q':
+            {
+                // Save modified number of samples
+                FILE* f_trainingInfo = fopen("./training_samples/info.txt", "w+");
+                assert(f_trainingInfo != NULL);
+                
+                // Collect HOG data
+                //generate_DB_HOGs("./training_samples", "dcface_", 1);
+                // CONTINUE HERE : Finish SVM training
 
-              fprintf(f_trainingInfo, sample_info);
-              fclose(f_trainingInfo);
-              return 0;
-          }
-          case 'c':
-          {   
-              // Crop/Sample the detected face, store the HEQ-GrayScale cropped image for training data
-              sprintf(sample_name, "./training_samples/dcface_%d.png", ++Nsamples);
-              Mat cropped_face = bw_sample(face[0]);  // Gray scale and Histogram-Equalized
+                fprintf(f_trainingInfo, "Number of samples = %d\n", NPsamples);
+                fclose(f_trainingInfo);
+                return 0;
+            }
+            case 'p':
+            {   
+                // Crop/Sample the detected face, store the HEQ-GrayScale cropped image for training data
+                sprintf(sample_name, "./training_samples/dcface_%d.png", ++NPsamples);
+                Mat cropped_face = bw_sample(face[0]);  // Gray scale and Histogram-Equalized
 
-              imshow("Grayscale & Histogram-Equalized Sampled face", cropped_face);
-              imwrite(sample_name, cropped_face);
-              printf("Face located @ (%d,%d)\n", face[0].x, face[0].y);
-              printf("Size of image = %lux%lu\n", face[0].width, face[0].height);
+                // Show the cropped out, histogram-equalized face
+                imshow("Grayscale & Histogram-Equalized Sampled face", cropped_face);
+                imwrite(sample_name, cropped_face);
+                printf("Face located @ (%d,%d)\n", face[0].x, face[0].y);
+                printf("Size of image = %dx%d\n", face[0].width, face[0].height);
+                
+                // Append another HOG Entry
+                Mat gray;
+                HOGDescriptor hog;
+                vector< Point > location;
+                vector< float > descriptors; 
+                push_HOG(p_gradients, cropped_face, hog, location, descriptors);
 
-
-              // HOG opencv ex
-              Mat gray;
-              HOGDescriptor hog;
-              vector< Point > location;
-              vector< float > descriptors; 
-              
-              // Resize for uniform comparison
-              resize(cropped_face, cropped_face, Size(128,128) );
-              hog.winSize = cropped_face.size();;
-
-              // Compute HOG data and append to gradient list
-              hog.compute( cropped_face, descriptors, Size(32,32), Size(0,0), location );
-              gradients.push_back( Mat(descriptors.clones() ) );
-
-              // Visualize HOG descriptors
-              imshow( "gradient", get_hogdescriptor_visu( cropped_face.clone(), descriptors, hog.winSize ) );
-              break;
-          }
-      }
+                // Visualize HOG descriptors
+                imshow( "HOG visual of sample", get_hogdescriptor_visu( cropped_face.clone(), descriptors, hog.winSize ) );
+                break;
+            }
+            case 'n':
+            {
+                break;
+            }
+        }
     }
     // Close files
     fclose(f_trainingInfo);
 
     return 0;
-  }
+}
 //-------------------------------------------------------------------------------------------------
 void show_instructions() {
     FILE* f_insn = fopen("./instruct.txt", "r+");
@@ -354,6 +351,7 @@ vector <Rect> detectAndDisplay(Mat frame, Mat frame_gray, CascadeClassifier face
 }
 
 // Example from OpenCV2 SDK
+/*
 void train_svm( const vector< Mat > & gradient_lst, const vector< int > & labels )
 {
     Mat train_data;
@@ -361,7 +359,6 @@ void train_svm( const vector< Mat > & gradient_lst, const vector< int > & labels
 
     clog << "Start training...";
     Ptr<SVM> svm = SVM::create();
-    /* Default values to train SVM */
     svm->setCoef0(0.0);
     svm->setDegree(3);
     svm->setTermCriteria(TermCriteria( CV_TERMCRIT_ITER+CV_TERMCRIT_EPS, 1000, 1e-3 ));
@@ -375,4 +372,16 @@ void train_svm( const vector< Mat > & gradient_lst, const vector< int > & labels
     clog << "...[done]" << endl;
 
     svm->save( "my_people_detector.yml" );
+}
+*/
+
+void push_HOG(vector < Mat > & gradients, Mat & roi, HOGDescriptor & hog, vector < Point > & location, vector < float > & descriptors) 
+{
+    // Resize for uniform comparison
+    resize(roi, roi, Size(128,128) );
+    hog.winSize = roi.size();
+
+    // Compute HOG data and append to gradient list
+    hog.compute( roi, descriptors, Size(32,32), Size(0,0), location );
+    gradients.push_back( Mat(descriptors).clone() );
 }
