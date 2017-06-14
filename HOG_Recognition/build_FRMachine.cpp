@@ -75,6 +75,7 @@ int main(int argc, char** argv) {
     Ptr<SVM> svm;
     HOGDescriptor my_hog;
     HOGDescriptor sample_hog;
+    Mat test, draw;
 //-------------------------------------------------------------------------------------------------
 //    ROUTINE
 //-------------------------------------------------------------------------------------------------
@@ -165,9 +166,9 @@ int main(int argc, char** argv) {
                     // Subdivide the whole frame into subsets of the HOG window size for more negative images
                     // NOTE: This was intended for use with cameras that capture images bigger than hog window size = 128 x 128
                     Mat sub_img;
-                    for (int i=0; i<bw_sample.size().width - 128; i+=127)
+                    for (int i=0; i<bw_sample.size().width - 127; i+=127)
                     {
-                        for (int j=0; j<bw_sample.size().height - 128; j+=127)
+                        for (int j=0; j<bw_sample.size().height - 127; j+=127)
                         {
                             // Extract subimage, HOG process, and store
                             sub_img = bw_sample(Rect(i,j,128,128));
@@ -219,16 +220,22 @@ int main(int argc, char** argv) {
             if (face.size() == 0) 
             {
                 printf("No faces detected\n");
+                continue;
             }
-            Mat test = bw_sample(face[0]);
-            Mat draw = test.clone();
+            test = bw_sample(face[0]);
+            draw = test.clone();
 
             test_locations.clear();
             sample_hog.detectMultiScale( test, test_locations );
 
             for (int i=0; i<test_locations.size(); i++) 
             {
-                printf("David Detected? [YES] @ (%d,%d)\n", test_locations[i].x, test_locations[i].y);
+                printf("Faces detected. Is David there? [YES] @ (%d,%d)\n", test_locations[i].x, test_locations[i].y);
+            }
+
+            if (test_locations.size() == 0) 
+            {
+                printf("Faces detected. Is David there? [NO]\n");;
             }
         }
 //------------------------------------------------------------------------------------------------
