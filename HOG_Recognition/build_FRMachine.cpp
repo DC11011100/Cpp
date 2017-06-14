@@ -28,6 +28,7 @@ vector <Rect> detectAndDisplay( Mat frame, Mat frame_gray, CascadeClassifier fac
 void train_svm( const vector< Mat > & gradient_lst, const vector< int > & labels );
 void push_HOG(vector < Mat > & gradients, Mat & roi, HOGDescriptor & hog, vector < Point > & location, vector < float > & descriptors); 
 void convert_to_ml(const std::vector< cv::Mat > & train_samples, cv::Mat& trainData );
+void get_svm_detector(const Ptr<SVM>& svm, vector< float > & hog_detector );
 //-------------------------------------------------------------------------------------------------
 int main(int argc, char** argv) { 
     // NOTE: Unstable! Will crash for numbers with more than 24-digits
@@ -67,12 +68,20 @@ int main(int argc, char** argv) {
     HOGDescriptor hog;
     vector< Point > location;
     vector< float > descriptors;
+    vector< Rect > test_locations;
     bool run_HOGMachine = false;
 
-
-    
+    // SVM variables
+    Ptr<SVM> svm;
+    HOGDescriptor my_hog;
+    HOGDescriptor sample_hog;
+//-------------------------------------------------------------------------------------------------
+//    ROUTINE
+//-------------------------------------------------------------------------------------------------
+    char kin;
     for(;;)
     {
+        kin = waitKey(30);
         cap >> frame;                   // Capture frame
         if (frame.empty()) continue;    // Skipe empty frames
         
@@ -80,15 +89,15 @@ int main(int argc, char** argv) {
         cvtColor( frame, bw_sample, CV_BGR2GRAY );
         equalizeHist( bw_sample, bw_sample);
         
+        // Detect faces
+        face = detectAndDisplay( frame, bw_sample, face_cascade);
+        imshow("Press 'c' to capture sample", frame);
 //-------------------------------------------------------------------------------------------------
 //    Build the HOG recognition SVM
 //-------------------------------------------------------------------------------------------------
         if (run_HOGMachine == false)
         {
-            // Detect faces
-            face = detectAndDisplay( frame, bw_sample, face_cascade);
-            imshow("Press 'c' to capture sample", frame);
-            switch(waitKey(30)) {
+            switch(kin) {
                 case 'q':
                 {
                     // Save modified number of samples
@@ -106,6 +115,13 @@ int main(int argc, char** argv) {
                 }
                 case 'p':
                 {   
+                    // Must be a face detected for sampling
+                    if (face.size() == 0) 
+                    {
+                        fprintf(stderr, "There must be a face in the frame to sample!\n");
+                        continue;
+                    }
+
                     // Crop/Sample the detected face, store the HEQ-GrayScale cropped image for training data
                     sprintf(sample_name, "./training_samples/dcface_%d.png", ++NPsamples);
                     Mat cropped_face = bw_sample(face[0]);  // Gray scale and Histogram-Equalized
@@ -177,6 +193,18 @@ int main(int argc, char** argv) {
                 {
                     // Train the SVM and begin searching
                     train_svm(gradients, labels);
+
+                    // Load the trained SVM.
+                    my_hog.winSize = Size(128,128);
+                    svm = StatModel::load<SVM>( "myface_SVMdetector.yml" );
+                    // Set the trained svm to my_hog
+                    vector< float > hog_detector;
+                    get_svm_detector( svm, hog_detector );
+                    my_hog.setSVMDetector( hog_detector );
+                    // Set the people detector.
+
+                    // Begin detection
+                    printf("Starting Search...\n");
                     run_HOGMachine = true;
                     break;
                 }
@@ -184,12 +212,23 @@ int main(int argc, char** argv) {
             }
         }
 //-------------------------------------------------------------------------------------------------
-//    Build the HOG recognition SVM
+//    Use the HOG recognition SVM
 //-------------------------------------------------------------------------------------------------
         else if (run_HOGMachine == true)
         {
-            printf("Starting Search...\n");
-            return 0;
+            if (face.size() == 0) 
+            {
+                printf("No faces detected\n");
+            }
+
+            //Mat test = bw_sample(face[0]);
+            //Mat draw = test.clone();
+
+            //test_locations.clear();
+            //sample_hog.detectMultiScale( test, test_locations );
+
+            //test_locations.clear();
+            //my_hog.detectMultiScale( test, test_locations );
         }
 //------------------------------------------------------------------------------------------------
 //    *** END * ROUTINE ***
@@ -546,6 +585,26 @@ void test_it( const Size & size )
     }
 }
 */
+
+void get_svm_detector(const Ptr<SVM>& svm, vector< float > & hog_detector )
+{
+    // get the support vectors
+    Mat sv = svm->getSupportVectors();
+    const int sv_total = sv.rows;
+    // get the decision function
+    Mat alpha, svidx;
+    double rho = svm->getDecisionFunction(0, alpha, svidx);
+
+    CV_Assert( alpha.total() == 1 && svidx.total() == 1 && sv_total == 1 );
+    CV_Assert( (alpha.type() == CV_64F && alpha.at<double>(0) == 1.) ||
+               (alpha.type() == CV_32F && alpha.at<float>(0) == 1.f) );
+    CV_Assert( sv.type() == CV_32F );
+    hog_detector.clear();
+
+    hog_detector.resize(sv.cols + 1);
+    memcpy(&hog_detector[0], sv.ptr(), sv.cols*sizeof(hog_detector[0]));
+    hog_detector[sv.cols] = (float)-rho;
+}
 
 void push_HOG(vector < Mat > & gradients, Mat & roi, HOGDescriptor & hog, vector < Point > & location, vector < float > & descriptors) 
 {
