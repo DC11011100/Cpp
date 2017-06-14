@@ -195,12 +195,12 @@ int main(int argc, char** argv) {
                     train_svm(gradients, labels);
 
                     // Load the trained SVM.
-                    my_hog.winSize = Size(128,128);
+                    sample_hog.winSize = Size(128,128);
                     svm = StatModel::load<SVM>( "myface_SVMdetector.yml" );
                     // Set the trained svm to my_hog
                     vector< float > hog_detector;
                     get_svm_detector( svm, hog_detector );
-                    my_hog.setSVMDetector( hog_detector );
+                    sample_hog.setSVMDetector( hog_detector );
                     // Set the people detector.
 
                     // Begin detection
@@ -220,15 +220,16 @@ int main(int argc, char** argv) {
             {
                 printf("No faces detected\n");
             }
+            Mat test = bw_sample(face[0]);
+            Mat draw = test.clone();
 
-            //Mat test = bw_sample(face[0]);
-            //Mat draw = test.clone();
+            test_locations.clear();
+            sample_hog.detectMultiScale( test, test_locations );
 
-            //test_locations.clear();
-            //sample_hog.detectMultiScale( test, test_locations );
-
-            //test_locations.clear();
-            //my_hog.detectMultiScale( test, test_locations );
+            for (int i=0; i<test_locations.size(); i++) 
+            {
+                printf("David Detected? [YES] @ (%d,%d)\n", test_locations[i].x, test_locations[i].y);
+            }
         }
 //------------------------------------------------------------------------------------------------
 //    *** END * ROUTINE ***
