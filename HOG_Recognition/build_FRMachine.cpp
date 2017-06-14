@@ -7,15 +7,19 @@
 #include "opencv2/objdetect.hpp"
 #include "opencv2/highgui.hpp"
 #include "opencv2/imgproc.hpp"
+#include <opencv2/opencv.hpp>
 #include <iostream>
 #include <stdio.h>
 #include <string.h>
+#include <vector>
+#include <time.h>
 //-------------------------------------------------------------------------------------------------
 #define PATH_FACE_CASCADE "./HAAR_faceData/haarcascade_frontalface_alt.xml"
 #define DEBUG
 //-------------------------------------------------------------------------------------------------
-using namespace std;
 using namespace cv;
+using namespace cv::ml;
+using namespace std;
 //-------------------------------------------------------------------------------------------------
 void show_instructions(void);
 void generate_DB_HOGs(char* db_path, char* sample_file, int Nsamples);
@@ -23,6 +27,7 @@ Mat get_hogdescriptor_visu(const Mat & color_origImg, vector < float > & descrip
 vector <Rect> detectAndDisplay( Mat frame, Mat frame_gray, CascadeClassifier face_cascade );
 void train_svm( const vector< Mat > & gradient_lst, const vector< int > & labels );
 void push_HOG(vector < Mat > & gradients, Mat & roi, HOGDescriptor & hog, vector < Point > & location, vector < float > & descriptors); 
+void convert_to_ml(const std::vector< cv::Mat > & train_samples, cv::Mat& trainData );
 //-------------------------------------------------------------------------------------------------
 int main(int argc, char** argv) { 
     // NOTE: Unstable! Will crash for numbers with more than 24-digits
@@ -404,7 +409,6 @@ vector <Rect> detectAndDisplay(Mat frame, Mat frame_gray, CascadeClassifier face
 }
 
 // Example from OpenCV2 SDK
-/*
 void train_svm( const vector< Mat > & gradient_lst, const vector< int > & labels )
 {
     Mat train_data;
@@ -426,7 +430,36 @@ void train_svm( const vector< Mat > & gradient_lst, const vector< int > & labels
 
     svm->save( "my_people_detector.yml" );
 }
+
+/*
+* Convert training/testing set to be used by OpenCV Machine Learning algorithms.
+* TrainData is a matrix of size (#samples x max(#cols,#rows) per samples), in 32FC1.
+* Transposition of samples are made if needed.
 */
+void convert_to_ml(const std::vector< cv::Mat > & train_samples, cv::Mat& trainData )
+{
+    //--Convert data
+    const int rows = (int)train_samples.size();
+    const int cols = (int)std::max( train_samples[0].cols, train_samples[0].rows );
+    cv::Mat tmp(1, cols, CV_32FC1); //< used for transposition if needed
+    trainData = cv::Mat(rows, cols, CV_32FC1 );
+    vector< Mat >::const_iterator itr = train_samples.begin();
+    vector< Mat >::const_iterator end = train_samples.end();
+    for( int i = 0 ; itr != end ; ++itr, ++i )
+    {
+        CV_Assert( itr->cols == 1 ||
+            itr->rows == 1 );
+        if( itr->cols == 1 )
+        {
+            transpose( *(itr), tmp );
+            tmp.copyTo( trainData.row( i ) );
+        }
+        else if( itr->rows == 1 )
+        {
+            itr->copyTo( trainData.row( i ) );
+        }
+    }
+}
 
 void push_HOG(vector < Mat > & gradients, Mat & roi, HOGDescriptor & hog, vector < Point > & location, vector < float > & descriptors) 
 {
