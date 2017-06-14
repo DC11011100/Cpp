@@ -431,7 +431,7 @@ void train_svm( const vector< Mat > & gradient_lst, const vector< int > & labels
     svm->train(train_data, ROW_SAMPLE, Mat(labels));
     clog << "...[done]" << endl;
 
-    svm->save( "my_people_detector.yml" );
+    svm->save( "myface_SVMdetector.yml" );
 }
 
 /*
