@@ -134,7 +134,6 @@ int main(int argc, char** argv) {
 
                 // Subdivide the whole frame into subsets of the HOG window size for more negative images
                 // NOTE: This was intended for use with cameras that capture images bigger than hog window size = 128 x 128
-                imshow("bw_sample", bw_sample);
                 Mat sub_img;
                 for (int i=0; i<bw_sample.size().width - 128; i+=127)
                 {
@@ -150,10 +149,10 @@ int main(int argc, char** argv) {
                         imwrite(sample_name, sub_img);
                         
                         // Generate negative HOG data for each sub image in background
-                        //push_HOG(n_gradients, sub_img, hog, location, descriptors);
+                        push_HOG(n_gradients, sub_img, hog, location, descriptors);
 
                         #ifdef DEBUG
-                        //imshow( "HOG visual of (-) face", get_hogdescriptor_visu( neg_face.clone(), descriptors, hog.winSize ) );
+                        imshow( "HOG visual of (-) sub image", get_hogdescriptor_visu( sub_img.clone(), descriptors, hog.winSize ) );
                         #endif
                     }
                 }
