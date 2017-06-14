@@ -12,6 +12,7 @@
 #include <string.h>
 //-------------------------------------------------------------------------------------------------
 #define PATH_FACE_CASCADE "./HAAR_faceData/haarcascade_frontalface_alt.xml"
+#define DEBUG
 //-------------------------------------------------------------------------------------------------
 using namespace std;
 using namespace cv;
@@ -36,21 +37,32 @@ int main(int argc, char** argv) {
 
     // Load up training data info HOG
     int NPsamples = -1;
+    int NNsamples = -1;
     FILE* f_trainingInfo = fopen("./training_samples/info.txt", "r");
     assert(f_trainingInfo != NULL);
-    fscanf(f_trainingInfo, "Number of samples = %d\n", &NPsamples);
+    fscanf(f_trainingInfo, "Number of p-samples = %d\nNumber of n-samples = %d\n", &NPsamples, &NNsamples);
     fclose(f_trainingInfo);
 
     // Load up face detection cascades for face localization HAAR
     CascadeClassifier face_cascade;
-    if( !face_cascade.load( PATH_FACE_CASCADE ) ){ printf("--(!)Error loading\n"); return -1; };
-    
+    if( !face_cascade.load( PATH_FACE_CASCADE ) )
+    { 
+        printf("--(!)Error loading\n"); 
+        return -1; 
+    }
+
     // Start video capture
     vector < Mat > p_gradients;
     vector < Mat > n_gradients;
     vector < int > labels;
     Mat bw_sample, frame;
     vector< Rect > face;
+    
+    // HOG variables
+    Mat gray;
+    HOGDescriptor hog;
+    vector< Point > location;
+    vector< float > descriptors; 
     for(;;)
     {
         cap >> frame;                   // Capture frame
@@ -74,7 +86,7 @@ int main(int argc, char** argv) {
                 //generate_DB_HOGs("./training_samples", "dcface_", 1);
                 // CONTINUE HERE : Finish SVM training
 
-                fprintf(f_trainingInfo, "Number of samples = %d\n", NPsamples);
+                fprintf(f_trainingInfo, "Number of p-samples = %d\nNumber of n-samples = %d\n", NPsamples, NNsamples);
                 fclose(f_trainingInfo);
                 return 0;
             }
@@ -91,10 +103,6 @@ int main(int argc, char** argv) {
                 printf("Size of image = %dx%d\n", face[0].width, face[0].height);
                 
                 // Append another HOG Entry
-                Mat gray;
-                HOGDescriptor hog;
-                vector< Point > location;
-                vector< float > descriptors; 
                 push_HOG(p_gradients, cropped_face, hog, location, descriptors);
 
                 // Visualize HOG descriptors
@@ -103,29 +111,32 @@ int main(int argc, char** argv) {
             }
             case 'n':
             {
-                /*
                 // Crop/Sample the detected face, store the HEQ-GrayScale cropped image for training data
                 sprintf(sample_name, "./training_samples/neg_%d.png", ++NNsamples);
                 
-                // Sample negative image
-                Mat neg_face = bw_sample(face[0]);  // Gray scale and Histogram-Equalized
+                // Process any/all captured faces
+                Mat neg_face;
+                for (int i=0; i<face.size(); i++)
+                {
+                    neg_face = bw_sample(face[i]);
+                    
+                    // Show all detected faces
+                    imshow("Negative captured face", neg_face);
+                    imwrite(sample_name, neg_face);
 
-                // Show the cropped out, histogram-equalized face
-                imshow("Grayscale & Histogram-Equalized Sampled face", cropped_face);
-                imwrite(sample_name, cropped_face);
-                printf("Face located @ (%d,%d)\n", face[0].x, face[0].y);
-                printf("Size of image = %dx%d\n", face[0].width, face[0].height);
-                
-                // Append another HOG Entry
-                Mat gray;
-                HOGDescriptor hog;
-                vector< Point > location;
-                vector< float > descriptors; 
-                push_HOG(p_gradients, cropped_face, hog, location, descriptors);
+                    // Append to negative HOG descriptors
+                    push_HOG(n_gradients, neg_face, hog, location, descriptors);
 
-                // Visualize HOG descriptors
-                imshow( "HOG visual of sample", get_hogdescriptor_visu( cropped_face.clone(), descriptors, hog.winSize ) );
-                */
+                    #ifdef DEBUG
+                    imshow( "HOG visual of negative captured face", get_hogdescriptor_visu( neg_face.clone(), descriptors, hog.winSize ) );
+                    #endif
+                }
+
+                // Additionally, get HOGS for every subset frame in the negative image
+                push_HOG(n_gradients, bw_sample, hog, location, descriptors);
+ 
+                // Visualize HOG descriptor for whole captured frame
+                imshow( "HOG visual of sample", get_hogdescriptor_visu( bw_sample.clone(), descriptors, hog.winSize ) );
                 break;
             }
         }

@@ -5,4 +5,4 @@ clean:
 cleaner:
 	rm -rf ./build_FRMachine ./build_FRMachine.dSYM ./training_samples/info.txt
 	rm -f ./training_samples/dcface_*
-	echo "Number of samples = 0" > ./training_samples/info.txt
+	printf "Number of p-samples = 0\nNumber of n-samples = 0\n" > ./training_samples/info.txt
