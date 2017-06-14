@@ -57,8 +57,7 @@ int main(int argc, char** argv) {
     }
 
     // Start video capture
-    vector < Mat > p_gradients;
-    vector < Mat > n_gradients;
+    vector < Mat > gradients;
     vector < int > labels;
     Mat bw_sample, frame;
     vector< Rect > face;
@@ -90,8 +89,7 @@ int main(int argc, char** argv) {
                 // Collect HOG data
                 //generate_DB_HOGs("./training_samples", "dcface_", 1);
                 // CONTINUE HERE : Finish SVM training
-
-                printf("labels size = %d\n", labels.size());
+                train_svm(gradients, labels);
 
                 fprintf(f_trainingInfo, "Number of p-samples = %d\nNumber of n-samples = %d\n", NPsamples, NNsamples);
                 fclose(f_trainingInfo);
@@ -110,7 +108,7 @@ int main(int argc, char** argv) {
                 printf("Size of image = %dx%d\n", face[0].width, face[0].height);
                 
                 // Append another HOG Entry and assign label
-                push_HOG(p_gradients, cropped_face, hog, location, descriptors);
+                push_HOG(gradients, cropped_face, hog, location, descriptors);
                 labels.push_back(+1);
 
                 // Visualize HOG descriptors
@@ -133,7 +131,7 @@ int main(int argc, char** argv) {
                     imwrite(sample_name, neg_face);
 
                     // Append to negative HOG descriptors
-                    push_HOG(n_gradients, neg_face, hog, location, descriptors);
+                    push_HOG(gradients, neg_face, hog, location, descriptors);
                     labels.push_back(-1);
 
                     #ifdef DEBUG
@@ -158,7 +156,7 @@ int main(int argc, char** argv) {
                         imwrite(sample_name, sub_img);
                         
                         // Generate negative HOG data for each sub image in background
-                        push_HOG(n_gradients, sub_img, hog, location, descriptors);
+                        push_HOG(gradients, sub_img, hog, location, descriptors);
                         labels.push_back(-1);
 
                         #ifdef DEBUG
