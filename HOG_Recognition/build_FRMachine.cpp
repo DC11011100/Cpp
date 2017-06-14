@@ -111,8 +111,7 @@ int main(int argc, char** argv) {
             }
             case 'n':
             {
-                // Crop/Sample the detected face, store the HEQ-GrayScale cropped image for training data
-                sprintf(sample_name, "./training_samples/neg_%d.png", ++NNsamples);
+
                 
                 // Process any/all captured faces
                 Mat neg_face;
@@ -120,7 +119,8 @@ int main(int argc, char** argv) {
                 {
                     neg_face = bw_sample(face[i]);
                     
-                    // Show all detected faces
+                    // Crop/Sample the detected face, store the HEQ-GrayScale cropped image for training data
+                    sprintf(sample_name, "./training_samples/neg_%d.png", ++NNsamples);
                     imshow("Negative captured face", neg_face);
                     imwrite(sample_name, neg_face);
 
@@ -132,11 +132,31 @@ int main(int argc, char** argv) {
                     #endif
                 }
 
-                // Additionally, get HOGS for every subset frame in the negative image
-                push_HOG(n_gradients, bw_sample, hog, location, descriptors);
- 
-                // Visualize HOG descriptor for whole captured frame
-                imshow( "HOG visual of sample", get_hogdescriptor_visu( bw_sample.clone(), descriptors, hog.winSize ) );
+                // Subdivide the whole frame into subsets of the HOG window size for more negative images
+                // NOTE: This was intended for use with cameras that capture images bigger than hog window size = 128 x 128
+                imshow("bw_sample", bw_sample);
+                Mat sub_img;
+                for (int i=0; i<bw_sample.size().width - 128; i+=127)
+                {
+                    for (int j=0; j<bw_sample.size().height - 128; j+=127)
+                    {
+                        // Extract subimage, HOG process, and store
+                        sub_img = bw_sample(Rect(i,j,128,128));
+                        printf("i = %d\nj = %d\n", i,j);
+
+                        // Crop/Sample the detected face, store the HEQ-GrayScale cropped image for training data
+                        sprintf(sample_name, "./training_samples/neg_%d.png", ++NNsamples);
+                        imshow("(-) Sub-image", sub_img);
+                        imwrite(sample_name, sub_img);
+                        
+                        // Generate negative HOG data for each sub image in background
+                        //push_HOG(n_gradients, sub_img, hog, location, descriptors);
+
+                        #ifdef DEBUG
+                        //imshow( "HOG visual of (-) face", get_hogdescriptor_visu( neg_face.clone(), descriptors, hog.winSize ) );
+                        #endif
+                    }
+                }
                 break;
             }
         }
