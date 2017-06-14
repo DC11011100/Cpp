@@ -66,7 +66,11 @@ int main(int argc, char** argv) {
     Mat gray;
     HOGDescriptor hog;
     vector< Point > location;
-    vector< float > descriptors; 
+    vector< float > descriptors;
+    bool run_HOGMachine = false;
+
+
+    
     for(;;)
     {
         cap >> frame;                   // Capture frame
@@ -76,103 +80,127 @@ int main(int argc, char** argv) {
         cvtColor( frame, bw_sample, CV_BGR2GRAY );
         equalizeHist( bw_sample, bw_sample);
         
-        // Detect faces
-        face = detectAndDisplay( frame, bw_sample, face_cascade);
-        imshow("Press 'c' to capture sample", frame);
-        switch(waitKey(30)) {
-            case 'q':
-            {
-                // Save modified number of samples
-                FILE* f_trainingInfo = fopen("./training_samples/info.txt", "w+");
-                assert(f_trainingInfo != NULL);
-                
-                // Collect HOG data
-                //generate_DB_HOGs("./training_samples", "dcface_", 1);
-                // CONTINUE HERE : Finish SVM training
-                train_svm(gradients, labels);
-
-                fprintf(f_trainingInfo, "Number of p-samples = %d\nNumber of n-samples = %d\n", NPsamples, NNsamples);
-                fclose(f_trainingInfo);
-                return 0;
-            }
-            case 'p':
-            {   
-                // Crop/Sample the detected face, store the HEQ-GrayScale cropped image for training data
-                sprintf(sample_name, "./training_samples/dcface_%d.png", ++NPsamples);
-                Mat cropped_face = bw_sample(face[0]);  // Gray scale and Histogram-Equalized
-
-                // Show the cropped out, histogram-equalized face
-                imshow("Grayscale & Histogram-Equalized Sampled face", cropped_face);
-                imwrite(sample_name, cropped_face);
-                printf("Face located @ (%d,%d)\n", face[0].x, face[0].y);
-                printf("Size of image = %dx%d\n", face[0].width, face[0].height);
-                
-                // Append another HOG Entry and assign label
-                push_HOG(gradients, cropped_face, hog, location, descriptors);
-                labels.push_back(+1);
-
-                // Visualize HOG descriptors
-                imshow( "HOG visual of sample", get_hogdescriptor_visu( cropped_face.clone(), descriptors, hog.winSize ) );
-                break;
-            }
-            case 'n':
-            {
-
-                
-                // Process any/all captured faces
-                Mat neg_face;
-                for (int i=0; i<face.size(); i++)
+//-------------------------------------------------------------------------------------------------
+//    Build the HOG recognition SVM
+//-------------------------------------------------------------------------------------------------
+        if (run_HOGMachine == false)
+        {
+            // Detect faces
+            face = detectAndDisplay( frame, bw_sample, face_cascade);
+            imshow("Press 'c' to capture sample", frame);
+            switch(waitKey(30)) {
+                case 'q':
                 {
-                    neg_face = bw_sample(face[i]);
+                    // Save modified number of samples
+                    FILE* f_trainingInfo = fopen("./training_samples/info.txt", "w+");
+                    assert(f_trainingInfo != NULL);
                     
-                    // Crop/Sample the detected face, store the HEQ-GrayScale cropped image for training data
-                    sprintf(sample_name, "./training_samples/neg_%d.png", ++NNsamples);
-                    imshow("Negative captured face", neg_face);
-                    imwrite(sample_name, neg_face);
+                    // Collect HOG data
+                    //generate_DB_HOGs("./training_samples", "dcface_", 1);
+                    // CONTINUE HERE : Finish SVM training
+                    train_svm(gradients, labels);
 
-                    // Append to negative HOG descriptors
-                    push_HOG(gradients, neg_face, hog, location, descriptors);
-                    labels.push_back(-1);
-
-                    #ifdef DEBUG
-                    imshow( "HOG visual of negative captured face", get_hogdescriptor_visu( neg_face.clone(), descriptors, hog.winSize ) );
-                    #endif
+                    fprintf(f_trainingInfo, "Number of p-samples = %d\nNumber of n-samples = %d\n", NPsamples, NNsamples);
+                    fclose(f_trainingInfo);
+                    return 0;
                 }
+                case 'p':
+                {   
+                    // Crop/Sample the detected face, store the HEQ-GrayScale cropped image for training data
+                    sprintf(sample_name, "./training_samples/dcface_%d.png", ++NPsamples);
+                    Mat cropped_face = bw_sample(face[0]);  // Gray scale and Histogram-Equalized
 
-                // Subdivide the whole frame into subsets of the HOG window size for more negative images
-                // NOTE: This was intended for use with cameras that capture images bigger than hog window size = 128 x 128
-                Mat sub_img;
-                for (int i=0; i<bw_sample.size().width - 128; i+=127)
-                {
-                    for (int j=0; j<bw_sample.size().height - 128; j+=127)
+                    // Show the cropped out, histogram-equalized face
+                    imshow("Grayscale & Histogram-Equalized Sampled face", cropped_face);
+                    imwrite(sample_name, cropped_face);
+                    printf("Face located @ (%d,%d)\n", face[0].x, face[0].y);
+                    printf("Size of image = %dx%d\n", face[0].width, face[0].height);
+                    
+                    // Append another HOG Entry and assign label
+                    push_HOG(gradients, cropped_face, hog, location, descriptors);
+                    labels.push_back(+1);
+
+                    // Visualize HOG descriptors
+                    imshow( "HOG visual of sample", get_hogdescriptor_visu( cropped_face.clone(), descriptors, hog.winSize ) );
+                    break;
+                }
+                case 'n':
+                {    
+                    // Process any/all captured faces
+                    Mat neg_face;
+                    for (int i=0; i<face.size(); i++)
                     {
-                        // Extract subimage, HOG process, and store
-                        sub_img = bw_sample(Rect(i,j,128,128));
-                        printf("i = %d\nj = %d\n", i,j);
-
+                        neg_face = bw_sample(face[i]);
+                        
                         // Crop/Sample the detected face, store the HEQ-GrayScale cropped image for training data
                         sprintf(sample_name, "./training_samples/neg_%d.png", ++NNsamples);
-                        imshow("(-) Sub-image", sub_img);
-                        imwrite(sample_name, sub_img);
-                        
-                        // Generate negative HOG data for each sub image in background
-                        push_HOG(gradients, sub_img, hog, location, descriptors);
+                        imshow("Negative captured face", neg_face);
+                        imwrite(sample_name, neg_face);
+
+                        // Append to negative HOG descriptors
+                        push_HOG(gradients, neg_face, hog, location, descriptors);
                         labels.push_back(-1);
 
                         #ifdef DEBUG
-                        imshow( "HOG visual of (-) sub image", get_hogdescriptor_visu( sub_img.clone(), descriptors, hog.winSize ) );
+                        imshow( "HOG visual of negative captured face", get_hogdescriptor_visu( neg_face.clone(), descriptors, hog.winSize ) );
                         #endif
                     }
+
+                    // Subdivide the whole frame into subsets of the HOG window size for more negative images
+                    // NOTE: This was intended for use with cameras that capture images bigger than hog window size = 128 x 128
+                    Mat sub_img;
+                    for (int i=0; i<bw_sample.size().width - 128; i+=127)
+                    {
+                        for (int j=0; j<bw_sample.size().height - 128; j+=127)
+                        {
+                            // Extract subimage, HOG process, and store
+                            sub_img = bw_sample(Rect(i,j,128,128));
+                            printf("i = %d\nj = %d\n", i,j);
+
+                            // Crop/Sample the detected face, store the HEQ-GrayScale cropped image for training data
+                            sprintf(sample_name, "./training_samples/neg_%d.png", ++NNsamples);
+                            imshow("(-) Sub-image", sub_img);
+                            imwrite(sample_name, sub_img);
+                            
+                            // Generate negative HOG data for each sub image in background
+                            push_HOG(gradients, sub_img, hog, location, descriptors);
+                            labels.push_back(-1);
+
+                            #ifdef DEBUG
+                            imshow( "HOG visual of (-) sub image", get_hogdescriptor_visu( sub_img.clone(), descriptors, hog.winSize ) );
+                            #endif
+                        }
+                    }
+                    break;
                 }
-                break;
+                case 't':
+                {
+                    // Train the SVM and begin searching
+                    train_svm(gradients, labels);
+                    run_HOGMachine = true;
+                    break;
+                }
+
             }
         }
+//-------------------------------------------------------------------------------------------------
+//    Build the HOG recognition SVM
+//-------------------------------------------------------------------------------------------------
+        else if (run_HOGMachine == true)
+        {
+            printf("Starting Search...\n");
+            return 0;
+        }
+//------------------------------------------------------------------------------------------------
+//    *** END * ROUTINE ***
+//-------------------------------------------------------------------------------------------------
     }
     // Close files
     fclose(f_trainingInfo);
-
     return 0;
 }
+//-------------------------------------------------------------------------------------------------
+//  API
 //-------------------------------------------------------------------------------------------------
 void show_instructions() {
     FILE* f_insn = fopen("./instruct.txt", "r+");
@@ -463,6 +491,61 @@ void convert_to_ml(const std::vector< cv::Mat > & train_samples, cv::Mat& trainD
         }
     }
 }
+
+/*
+void test_it( const Size & size )
+{
+    char key = 27;
+    Scalar reference( 0, 255, 0 );
+    Scalar trained( 0, 0, 255 );
+    Mat img, draw;
+    Ptr<SVM> svm;
+    HOGDescriptor hog;
+    HOGDescriptor my_hog;
+    my_hog.winSize = size;
+    VideoCapture video;
+    vector< Rect > locations;
+
+    // Load the trained SVM.
+    svm = StatModel::load<SVM>( "my_people_detector.yml" );
+    // Set the trained svm to my_hog
+    vector< float > hog_detector;
+    get_svm_detector( svm, hog_detector );
+    my_hog.setSVMDetector( hog_detector );
+    // Set the people detector.
+    hog.setSVMDetector( hog.getDefaultPeopleDetector() );
+    // Open the camera.
+    video.open(0);
+    if( !video.isOpened() )
+    {
+        cerr << "Unable to open the device 0" << endl;
+        exit( -1 );
+    }
+
+    bool end_of_process = false;
+    while( !end_of_process )
+    {
+        video >> img;
+        if( img.empty() )
+            break;
+
+        draw = img.clone();
+
+        locations.clear();
+        hog.detectMultiScale( img, locations );
+        draw_locations( draw, locations, reference );
+
+        locations.clear();
+        my_hog.detectMultiScale( img, locations );
+        draw_locations( draw, locations, trained );
+
+        imshow( "Video", draw );
+        key = (char)waitKey( 10 );
+        if( 27 == key )
+            end_of_process = true;
+    }
+}
+*/
 
 void push_HOG(vector < Mat > & gradients, Mat & roi, HOGDescriptor & hog, vector < Point > & location, vector < float > & descriptors) 
 {
