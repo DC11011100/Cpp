@@ -3,7 +3,7 @@ TARGET = pattern_match
 
 # Compiler options
 CXX      := g++
-CXXFLAGS := -Wall
+CXXFLAGS := -std=c++11 -Wall
 
 # Libararies
 INC_DIR := ./inc
@@ -16,7 +16,7 @@ SRC_DIR := ./src
 SOURCES := ${wildcard ${SRC_DIR}/*.cpp}
 
 ${TARGET}: ${SOURCES}
-	${CXX} ${LFLAGS} -o $@ ${SOURCES}
+	${CXX} ${CXXFLAGS} ${LFLAGS} -o $@ ${SOURCES}
 
 .PHONY: clean
 clean:

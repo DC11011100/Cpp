@@ -25,13 +25,9 @@ int main(int argc, char *argv[])
     Aho_Corasick::Trie dictMachine;
     dictMachine.buildForwards(dict);
 
-
-    // Show phrases
-    for (int i=0; i<dict.size(); i++)
-    {
-        cout << dict[i].phrase << " " << dict[i].weight << endl;
-    }
-
+    // Show tree
+    printf("\n Tree \n");
+    dictMachine.print();
     return 0;
 }
 
