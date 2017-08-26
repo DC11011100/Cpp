@@ -25,6 +25,6 @@ clean:
 
 .PHONY: version
 version:
-	git add ../aho-carosick
-	git commit -m"new version : Aho-Carosick"
+	git add ../aho-corasick
+	git commit -m"new version : Aho-Corasick"
 	git push
