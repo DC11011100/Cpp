@@ -8,6 +8,8 @@ $ pattern_match dict.txt
 where *dict.txt* is a dictionary containing entries of the form:
 ```
 iamaword 24
+secondword 53
+coffee 99
 ```
-Note that words are really entries of type {string, payload}
+Note entries are of type {phrase, payload}
 ## 
