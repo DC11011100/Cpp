@@ -5,13 +5,13 @@
 using namespace std;
 class Aho_Corasick
 {
-    protected:
+    public:
         typedef struct Entry
         {
             string phrase;
             int    weight;
         } Entry;
-
+        
         typedef struct Node
         {
             unordered_map <int, Entry> output;
@@ -19,23 +19,18 @@ class Aho_Corasick
             unordered_map <char, Node> failPath;
         } Node;
 
-    public:
         class Trie
         {
             public:
                 Trie(void);
-                void buildTrie(const vector<string> &dict);
+                void buildTrie(const vector<Entry> &dict);
 
-            private:
+            //private:
                 Node root;
                 Node state;
 
-                void addPhrase(int index, const string &phrase, int weight);
-                void buildForwards(const vector <string> &dict, const vector <int> &weights);
+                void addPhrase(int index, const Entry &word);
+                void buildForwards(const vector <Entry> &dict);
                 void buildBackward(const vector <string> &dict);
-        };
-
-
-    
-
+        };    
 };
