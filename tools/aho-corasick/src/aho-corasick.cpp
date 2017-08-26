@@ -1,12 +1,12 @@
-#include "../inc/aho-carosick.h"
+#include "../inc/aho-corasick.h"
 
-Aho_Carosick::Trie::Trie(void)
+Aho_Corasick::Trie::Trie(void)
 {
     root = Node();
     state = root;
 }
 
-void Aho_Carosick::Trie::addPhrase(int index, const string &phrase, int weight)
+void Aho_Corasick::Trie::addPhrase(int index, const string &phrase, int weight)
 {
     Node frontier = root;
     int match_i = 0;
@@ -30,7 +30,7 @@ void Aho_Carosick::Trie::addPhrase(int index, const string &phrase, int weight)
     frontier.output[index] = newPhrase;;
 }
 
-void Aho_Carosick::Trie::buildForwards(const vector <string> &dict, const vector <int> &weights)
+void Aho_Corasick::Trie::buildForwards(const vector <string> &dict, const vector <int> &weights)
 {
     for (int i=0; i<dict.size(); i++)
     {

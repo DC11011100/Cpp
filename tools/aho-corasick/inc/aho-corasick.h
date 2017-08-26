@@ -3,7 +3,7 @@
 #include <vector>
 
 using namespace std;
-class Aho_Carosick
+class Aho_Corasick
 {
     protected:
         typedef struct Entry
