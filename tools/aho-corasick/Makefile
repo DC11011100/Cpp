@@ -25,6 +25,6 @@ clean:
 
 .PHONY: version
 version:
-	git add ./Makefile ${HEADERS} ${SOURCES}
-	git commit -m"new version"
+	git add ../aho-carosick
+	git commit -m"new version : Aho-Carosick"
 	git push
