@@ -3,6 +3,7 @@
 Aho_Corasick::Trie::Trie(void)
 {
     root = new Node;
+    root->failPath = root;
     state = root;
 }
 
@@ -38,6 +39,44 @@ void Aho_Corasick::Trie::buildForwards(const vector <Entry> &dict)
     }
 }
 
+void Aho_Corasick::Trie::buildBackwards(void)
+{
+    // Set nodes of depth one for failPath --> root and queue all children
+    queue <Node*> q;
+    for (auto i=root->matchPath.begin(); i != root->matchPath.end(); i++)
+    {
+        q.push(i->second);
+        i->second->failPath = root;
+    }
+
+    // Set failPaths breadth-first
+    while (!q.empty())
+    {
+        Node *parent = q.front();
+        q.pop();
+
+        for (auto i=parent->matchPath.begin(); i != parent->matchPath.end(); i++)
+        {
+            char letter = i->first;
+            Node *child = i->second;
+            q.push(child);
+            
+            // Find the end of a matching prefix
+            Node *dest  = parent->failPath;
+            while (dest->matchPath.count(letter) == 0 && dest != root) dest = dest->failPath;
+
+            // Set the fail path
+            if (dest->matchPath.count(letter) == 0)
+            {
+                child->failPath = root;
+            } else 
+            {
+                child->failPath = dest->matchPath[letter];
+            }    
+        }
+    }
+}
+
 void printHelper(const Aho_Corasick::Node *n)
 {
     printf("[0x%lX] : {", (unsigned long)n);
@@ -53,7 +92,7 @@ void printHelper(const Aho_Corasick::Node *n)
             printf(" | (%c, 0x%lX)", child->first, (unsigned long)child->second);
         }
     }
-    printf("}\n");
+    printf("} FAIL: 0x%lX\n", (unsigned long)n->failPath);
 
     for (auto child=n->matchPath.begin(); child != n->matchPath.end(); child++)
     {

@@ -24,6 +24,7 @@ int main(int argc, char *argv[])
     // Build the automaton
     Aho_Corasick::Trie dictMachine;
     dictMachine.buildForwards(dict);
+    dictMachine.buildBackwards();
 
     // Show tree
     printf("\n Tree \n");

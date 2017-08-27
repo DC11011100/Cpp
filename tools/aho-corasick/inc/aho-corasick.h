@@ -1,6 +1,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <queue>
 
 using namespace std;
 class Aho_Corasick
@@ -16,7 +17,7 @@ class Aho_Corasick
         {
             unordered_map <int, Entry> output;
             unordered_map <char, Node*> matchPath;
-            unordered_map <char, Node*> failPath;
+            Node* failPath;
         } Node;
 
         class Trie
@@ -31,7 +32,7 @@ class Aho_Corasick
 
                 void addPhrase(int index, const Entry &word);
                 void buildForwards(const vector <Entry> &dict);
-                void buildBackward(const vector <string> &dict);
+                void buildBackwards(void);
                 void print(void);
         };
 };
