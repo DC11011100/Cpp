@@ -25,6 +25,7 @@ class Aho_Corasick
             public:
                 Trie(void);
                 void buildTrie(const vector<Entry> &dict);
+                int detect(int first, int last, char in);
 
             //private:
                 Node *root;

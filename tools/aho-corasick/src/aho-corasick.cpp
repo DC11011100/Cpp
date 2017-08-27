@@ -1,4 +1,5 @@
 #include "../inc/aho-corasick.h"
+#include <iostream>
 
 Aho_Corasick::Trie::Trie(void)
 {
@@ -11,24 +12,24 @@ void Aho_Corasick::Trie::addPhrase(int index, const Entry &word)
 {
     int match_i = 0;
 
+    Node *cursor = root;
     // Check if part of the phrase already exists in Trie
-    while (state->matchPath.count(word.phrase[match_i]) != 0)
+    while (cursor->matchPath.count(word.phrase[match_i]) != 0)
     {
-        state = state->matchPath.at(word.phrase[match_i++]);
+        cursor = cursor->matchPath.at(word.phrase[match_i++]);
     }
 
     // Insert absent portion of phrase into Trie
     for (int newLetter = match_i; newLetter < word.phrase.length(); newLetter++)
     {
         Node* frontier = new Node;
-        state->matchPath[word.phrase[newLetter]] = frontier;
-        state = frontier;
+        cursor->matchPath[word.phrase[newLetter]] = frontier;
+        cursor = frontier;
     }
 
     // Reached the end of the word, add output
     Entry newPhrase = {word.phrase, word.weight};
-    state->output[index] = newPhrase;
-    state = root;
+    cursor->output[index] = newPhrase;
 }
 
 void Aho_Corasick::Trie::buildForwards(const vector <Entry> &dict)
@@ -75,6 +76,39 @@ void Aho_Corasick::Trie::buildBackwards(void)
             }    
         }
     }
+}
+
+
+void Aho_Corasick::Trie::buildTrie(const vector<Entry> &dict)
+{
+    buildForwards(dict);
+    buildBackwards();
+}
+
+int Aho_Corasick::Trie::detect(int first, int last, char in)
+{
+    int total = 0;
+    // Traverse to a matching point.
+    while (state->matchPath.count(in) == 0 && state != root)
+    {
+        state = state->failPath;
+    }
+
+    // Set next state
+    if(state->matchPath.count(in) == 0) state = root;
+    else
+    {
+        state = state->matchPath[in];
+    }
+
+    for (auto i=state->output.begin(); i != state->output.end(); i++)
+    {
+        int index = i->first;
+        Entry word = i->second;
+        cout << "dict[" << index << "]: " << word.phrase << "-->" << word.weight << endl;
+        total += word.weight;
+    }
+    return total;
 }
 
 void printHelper(const Aho_Corasick::Node *n)

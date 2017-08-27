@@ -23,12 +23,19 @@ int main(int argc, char *argv[])
 
     // Build the automaton
     Aho_Corasick::Trie dictMachine;
-    dictMachine.buildForwards(dict);
-    dictMachine.buildBackwards();
-
+    dictMachine.buildTrie(dict);
     // Show tree
     printf("\n Tree \n");
     dictMachine.print();
+
+    printf("Starting machine...\n");
+    char c;
+    while (1)
+    {    
+        scanf("%c", &c);
+        dictMachine.detect(0,0,c);
+    }
+
     return 0;
 }
 
