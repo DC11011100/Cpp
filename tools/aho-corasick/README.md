@@ -9,8 +9,8 @@ $ pattern_match dict.txt
 $ pattern_match $START $END dict.txt
 ```
 The first method uses the entire dictionary, while the second inlusively uses words from $START to $END (0-indexed). 
-___
-Note: dict.txt is a path to a dictionary containing entries of the form:
+
+*Note*: dict.txt is a path to a dictionary containing entries of the form:
 ```
 iamaword 24
 secondword 53
