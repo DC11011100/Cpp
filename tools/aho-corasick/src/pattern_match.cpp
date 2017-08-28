@@ -51,7 +51,9 @@ int main(int argc, char *argv[])
     {    
         cin >> input;
         if (cin.fail()) break;
-
+        
+        // O(s) 
+        // where s is length of input string
         for (char c : input)
         {
             dictMachine.detect(first, last, c);

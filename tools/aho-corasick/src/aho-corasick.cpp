@@ -1,6 +1,7 @@
 #include "../inc/aho-corasick.h"
 #include <iostream>
 
+// O(1)
 Aho_Corasick::Trie::Trie(void)
 {
     root = new Node;
@@ -8,6 +9,9 @@ Aho_Corasick::Trie::Trie(void)
     state = root;
 }
 
+// O(n*w)
+// where 'n' is the number of entrys in the dictionary and 'w' the max word length in the dictionary
+// One could say this is linear with respect to the sum of the lengths of the words -- See linked paper
 void deleteHelper(Aho_Corasick::Node *n)
 {
     // Delete all children
@@ -18,11 +22,15 @@ void deleteHelper(Aho_Corasick::Node *n)
 
     delete n;
 }
+
+// O(n*w)
 Aho_Corasick::Trie::~Trie(void)
 {
     deleteHelper(root);
 }
 
+// O(w)
+// where 'w' is the length of the word.
 void Aho_Corasick::Trie::addPhrase(int index, const Entry &word)
 {
     int match_i = 0;
@@ -47,6 +55,7 @@ void Aho_Corasick::Trie::addPhrase(int index, const Entry &word)
     cursor->output[index] = newPhrase;
 }
 
+// O(n*w)
 void Aho_Corasick::Trie::buildForwards(const vector <Entry> &dict)
 {
     for (int i=0; i<dict.size(); i++)
@@ -55,6 +64,7 @@ void Aho_Corasick::Trie::buildForwards(const vector <Entry> &dict)
     }
 }
 
+// O(n*w)
 void Aho_Corasick::Trie::buildBackwards(void)
 {
     // Set nodes of depth one for failPath --> root and queue all children
@@ -94,12 +104,15 @@ void Aho_Corasick::Trie::buildBackwards(void)
 }
 
 
+// O(n*w)
 void Aho_Corasick::Trie::buildTrie(const vector<Entry> &dict)
 {
     buildForwards(dict);
     buildBackwards();
 }
 
+
+// O(1)
 int Aho_Corasick::Trie::detect(int first, int last, char in)
 {
     int total = 0;
@@ -130,11 +143,14 @@ int Aho_Corasick::Trie::detect(int first, int last, char in)
     return total;
 }
 
+// O(1)
 void Aho_Corasick::Trie::reset(void)
 {
     state = root;
 }
 
+
+// O(n*w)
 void printHelper(const Aho_Corasick::Node *n)
 {
     printf("[0x%lX] : {", (unsigned long)n);
@@ -158,6 +174,7 @@ void printHelper(const Aho_Corasick::Node *n)
     }
 }
 
+// O(n*w)
 void Aho_Corasick::Trie::print(void)
 {
     printf("ROOT:");
