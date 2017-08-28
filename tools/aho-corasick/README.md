@@ -8,7 +8,7 @@ After building, you can run the program in two ways:
 $ pattern_match dict.txt
 $ pattern_match $START $END dict.txt
 ```
-The first method uses the entire dictionary, while the second inlusively uses words from $START to $END (0-indexed). 
+The first method uses the entire dictionary, while the second inclusively uses words indexed from $START to $END (0-indexed). 
 
 *Note*: dict.txt is a path to a dictionary containing entries of the form:
 ```
