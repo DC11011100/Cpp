@@ -8,6 +8,21 @@ Aho_Corasick::Trie::Trie(void)
     state = root;
 }
 
+void deleteHelper(Aho_Corasick::Node *n)
+{
+    // Delete all children
+    for (auto i=n->matchPath.begin(); i != n->matchPath.end(); i++)
+    {
+        deleteHelper(i->second);
+    }
+
+    delete n;
+}
+Aho_Corasick::Trie::~Trie(void)
+{
+    deleteHelper(root);
+}
+
 void Aho_Corasick::Trie::addPhrase(int index, const Entry &word)
 {
     int match_i = 0;
@@ -105,10 +120,19 @@ int Aho_Corasick::Trie::detect(int first, int last, char in)
     {
         int index = i->first;
         Entry word = i->second;
-        cout << "dict[" << index << "]: " << word.phrase << "-->" << word.weight << endl;
-        total += word.weight;
+
+        if (index >= first && index <= last)
+        {
+            cout << "dict[" << index << "]: " << word.phrase << "-->" << word.weight << endl << flush;
+            total += word.weight;
+        }
     }
     return total;
+}
+
+void Aho_Corasick::Trie::reset(void)
+{
+    state = root;
 }
 
 void printHelper(const Aho_Corasick::Node *n)
