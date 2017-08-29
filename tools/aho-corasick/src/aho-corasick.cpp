@@ -98,7 +98,10 @@ void Aho_Corasick::Trie::buildBackwards(void)
             } else 
             {
                 child->failPath = dest->matchPath[letter];
-            }    
+            }
+
+            // Merge outputs
+            child->output.insert(child->failPath->output.begin(), child->failPath->output.end());
         }
     }
 }
@@ -113,9 +116,9 @@ void Aho_Corasick::Trie::buildTrie(const vector<Entry> &dict)
 
 
 // O(1)
-int Aho_Corasick::Trie::detect(int first, int last, char in)
+long long Aho_Corasick::Trie::detect(int first, int last, char in)
 {
-    int total = 0;
+    long long total = 0;
     // Traverse to a matching point.
     while (state->matchPath.count(in) == 0 && state != root)
     {
@@ -136,8 +139,8 @@ int Aho_Corasick::Trie::detect(int first, int last, char in)
 
         if (index >= first && index <= last)
         {
-            cout << "dict[" << index << "]: " << word.phrase << "-->" << word.weight << endl << flush;
             total += word.weight;
+            cout << "dict[" << index << "]: " << word.phrase << " --> " << word.weight << endl;
         }
     }
     return total;

@@ -26,7 +26,7 @@ class Aho_Corasick
                 Trie(void);
                 ~Trie(void);
                 void buildTrie(const vector<Entry> &dict);
-                int detect(int first, int last, char in);
+                long long detect(int first, int last, char in);
                 void reset(void);
 
             //private:

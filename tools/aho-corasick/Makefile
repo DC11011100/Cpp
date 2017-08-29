@@ -1,10 +1,10 @@
 #!/bin/bash
 TARGET    = pattern_match
-TEST_DICT = ./test_dict.txt
+TEST_DICT = ./tests/test_dict.txt
 
 # Compiler options
 CXX      := g++
-CXXFLAGS := -std=c++11 -Wall -g
+CXXFLAGS := -std=c++11 -Wall -g -Werror
 
 # Libararies
 INC_DIR := ./inc
@@ -22,7 +22,7 @@ ${TARGET}: ${SOURCES}
 .PHONY: version
 version:
 	git add ../aho-corasick
-	git commit -m"new version : Aho-Corasick"
+	git commit -m "new version"
 	git push
 
 .PHONY: leakcheck
