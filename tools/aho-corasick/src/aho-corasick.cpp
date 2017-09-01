@@ -140,7 +140,7 @@ long long Aho_Corasick::Trie::detect(int first, int last, char in)
         if (index >= first && index <= last)
         {
             total += word.weight;
-            cout << "dict[" << index << "]: " << word.phrase << " --> " << word.weight << endl;
+            //cout << "dict[" << index << "]: " << word.phrase << " --> " << word.weight << endl;
         }
     }
     return total;

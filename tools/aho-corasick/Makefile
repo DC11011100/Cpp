@@ -1,5 +1,6 @@
 #!/bin/bash
-TARGET    = pattern_match
+#TARGET    = pattern_match
+TARGET = hackerRank
 TEST_DICT = ./tests/test_dict.txt
 
 # Compiler options

@@ -21,4 +21,5 @@ Note entries are of type {phrase, payload}
 ## Notes
  * Building the Trie is O(c) where 'c' is the sum of the lengths of the words in the dictionary.
  * Searching a string using a prebuilt Trie takes O(s) where 's' is the length the of the string.
+ * I'm currently working on a faster implementation in C. Check it out <a href="https://github.com/DC11011100/C/tree/master/tools/aho-corasick"> here.</a>
 

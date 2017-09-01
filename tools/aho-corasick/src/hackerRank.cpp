@@ -4,7 +4,7 @@
 
 using namespace std;
 int main(){
-    ifstream inputFile("input31.txt");
+    ifstream inputFile("tests/input02.txt");
 
     int n;
     inputFile >> n;;
@@ -37,7 +37,7 @@ int main(){
     long long min = 0;
     long long max = 0;
     inputFile >> s;
-    cout << "queries = " << s;
+    cout << "queries = " << s << endl;
     for(int a0 = 0; a0 < s; a0++)
     {
         int first;
@@ -48,6 +48,7 @@ int main(){
         // Run dictionary search on string O(stringLength)
         dictMachine.reset();
         long long sum = 0;
+        printf("String size = %lu\n", d.length());
         for (char c : d)
         {
             sum += dictMachine.detect(first, last, c);
