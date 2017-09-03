@@ -1,0 +1,11 @@
+FACIAL RECOGNITION
+Faces are detected and stored using the 'c' command.
+Pressing 'c' then crops, histogram equalizes, and stores a sample image into "./training_samples"
+Histogram Equalization helps diminish the influence of varied light conditions.
+
+
+Try to take a roughly equal number of positive and negative images to ensure non-biased SVM
+VERSIONS
+OpenCV 
+C++
+g++

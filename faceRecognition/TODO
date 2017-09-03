@@ -1,0 +1,16 @@
+1. Improv upon multi-face sample rejection
+2. Fix callout for single-face frame!
+3. Organize HOG window size to variable, or #macro, and replace it everywhere size explicitly defined
+4. Fix occassional trap error 6 abortion
+
+- Make sure to use multi-scale detection when using hog.compute.
+  Diminishes effect of perspective
+
+
+BUGS
+  - cachestride.height assertion fail:
+
+OpenCV Error: Assertion failed (pt.x % cacheStride.width == 0 && pt.y % cacheStride.height == 0) in getBlock, file /Users/DavidGChalco/programs/SDK/opencv/modules/objdetect/src/hog.cpp, line 869
+libc++abi.dylib: terminating with uncaught exception of type cv::Exception: /Users/DavidGChalco/programs/SDK/opencv/modules/objdetect/src/hog.cpp:869: error: (-215) pt.x % cacheStride.width == 0 && pt.y % cacheStride.height == 0 in function getBlock 
+
+
