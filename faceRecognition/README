@@ -1,3 +1,7 @@
+Accidentally pushed a buggy version, but I also need to clean up the code a bit. So, as of right now this is in beta until I have more time again to improve it.
+Here's a video of the working project. I'll be migrating it to a QT app so that it's more easily used by a wider population. Until then,
+https://www.youtube.com/watch?v=x5FgLFEIXjM&t=269s
+
 FACIAL RECOGNITION
 Faces are detected and stored using the 'c' command.
 Pressing 'c' then crops, histogram equalizes, and stores a sample image into "./training_samples"
