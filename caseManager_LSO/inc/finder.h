@@ -16,6 +16,7 @@
 #include <QDebug>
 #include <QDesktopServices>
 #include <QDir>
+#include <QMessageBox>
 
 #define HOME_CLIENT_DIR "case_Manager/qt_testDB"
 
@@ -28,13 +29,16 @@ public:
 
 public slots:
     void searchClient();
-
     void updateClient(QString client);
-    void updateClientDetails(QString client);
-    void updateCaseDetails(QString case_name);
-
     void updateClientFiles(QString client);
     void updateCaseFiles(QString case_name);
+
+    void updateClientDetails(QString client);
+    void updateCaseDetails(QString case_name);
+    void editClientDetails();
+    void addClientDetails();
+    void editCaseDetails();
+    void addCaseDetails();
 
     void chooseFile();
     void addChosenFile();
@@ -45,6 +49,8 @@ private:
     void createSelector();
     void createDescriptor();
     void createFileManager();
+
+    bool loadClientDetails(QString client);
 
     // Labels
     QLabel *clientPhoto;
@@ -70,6 +76,10 @@ private:
     QPushButton *findClient;
     QPushButton *findFile;
     QPushButton *addFile;
+    QPushButton *addClient;
+    QPushButton *addCase;
+    QPushButton *editClient;
+    QPushButton *editCase;
 
     // Drop down menus
     QComboBox *clientSelect;
@@ -86,6 +96,7 @@ private:
 
 signals:
     void clientSearched(QStringList results);
+    void clientUpdated(QString client);
 };
 
 #endif // FINDER_H

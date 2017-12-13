@@ -2,6 +2,7 @@
 
 CaseFinder::CaseFinder(QWidget *parent)
 {
+    setWindowTitle("");
     // [DEV] Later on declaration on client Dir will be set by wrapper class
     rootDir = new QDir::QDir(QDir::home());
     rootDir->cd(HOME_CLIENT_DIR);
@@ -34,7 +35,12 @@ CaseFinder::CaseFinder(QWidget *parent)
     connect(addFile, SIGNAL(released()), this, SLOT(addChosenFile()));
     connect(fileTree, SIGNAL(doubleClicked(QModelIndex)), this, SLOT(openFile(QModelIndex)));
 
+    connect(editClient, SIGNAL(released()), this, SLOT(editClientDetails()));
+    connect(addClient, SIGNAL(released()), this, SLOT(addClientDetails()));
+    connect(editCase, SIGNAL(released()), this, SLOT(editCaseDetails()));
+    connect(addCase, SIGNAL(released()), this, SLOT(addCaseDetails()));
 
+    connect(this, SIGNAL(clientUpdated(QString)), this, SLOT(updateClient(QString)));
 }
 
 void CaseFinder::createSelector()
@@ -85,16 +91,22 @@ void CaseFinder::createDescriptor()
     QPixmap clientImage(rootDir->absoluteFilePath(".no-profile.jpg"));
     clientPhoto->setPixmap(clientImage.scaled(clientPhoto->width(), clientPhoto->height(), Qt::KeepAspectRatio));
 
-    clientName = new QLabel("<b>David Chalco<\b>", this);
-    clientEmail = new QLabel("test@test.test", this);
-    clientNumber = new QLabel("(818) 888-1234", this);
-    clientAddress = new QLabel("Apt #3\n8675 Thronin Dr.\nCapitola, CA 95063", this);
+    clientName = new QLabel("--", this);
+    clientEmail = new QLabel("--", this);
+    clientNumber = new QLabel("--", this);
+    clientAddress = new QLabel("--", this);
 
-    caseStart = new QLabel("0", this);
-    caseEnd = new QLabel("04-20-1999", this);
+    caseStart = new QLabel("--", this);
+    caseEnd = new QLabel("--", this);
 
-    caseSummary = new QLabel("Yea we got a Bleep Bloop again on the west 9.", this);
+    caseSummary = new QLabel("--", this);
     caseSummary->setWordWrap(true);
+
+    addClient = new QPushButton("Add", this);
+    editClient = new QPushButton("Edit", this);
+
+    addCase = new QPushButton("Add", this);
+    editCase = new QPushButton("Edit", this);
 
     // Layout
     QGridLayout *layout_descriptorBox = new QGridLayout;
@@ -115,15 +127,21 @@ void CaseFinder::createDescriptor()
     layout_descriptorBox->addWidget(new QLabel("<b>Address : <\b>", this), 3, 2, 1, 1, Qt::AlignRight | Qt::AlignTop);
     layout_descriptorBox->addWidget(clientAddress, 3, 3, 3, 2, Qt::AlignLeft | Qt::AlignTop);
 
+    layout_descriptorBox->addWidget(addClient, 6, 3, 1, 1, Qt::AlignLeft | Qt::AlignTop);
+    layout_descriptorBox->addWidget(editClient, 6, 4, 1, 1, Qt::AlignLeft | Qt::AlignTop);
+
+    layout_descriptorBox->addWidget(new QLabel("<h4>Case Info<\h4>", this), 0, 7, 1, 4, Qt::AlignTop | Qt::AlignHCenter);
     layout_descriptorBox->addWidget(new QLabel("<b>Start : <\b>", this), 1, 6, 1, 1, Qt::AlignRight);
     layout_descriptorBox->addWidget(caseStart, 1, 7, 1, 1, Qt::AlignLeft);
 
-    layout_descriptorBox->addWidget(new QLabel("<h4>Case Info<\h4>", this), 0, 7, 1, 4, Qt::AlignTop | Qt::AlignHCenter);
     layout_descriptorBox->addWidget(new QLabel("<b>End : <\b>", this), 1, 9, 1, 1, Qt::AlignRight);
     layout_descriptorBox->addWidget(caseEnd, 1, 10, 1, 1, Qt::AlignLeft);
 
     layout_descriptorBox->addWidget(new QLabel("<b>Summary : <\b>", this), 2, 6, 1, 1, Qt::AlignRight | Qt::AlignTop);
     layout_descriptorBox->addWidget(caseSummary, 2, 7, 4, 4, Qt::AlignLeft | Qt::AlignTop);
+
+    layout_descriptorBox->addWidget(addCase, 6, 8, 1, 1, Qt::AlignLeft | Qt::AlignTop);
+    layout_descriptorBox->addWidget(editCase, 6, 9, 1, 1, Qt::AlignLeft | Qt::AlignTop);
 
     descriptorBox->setLayout(layout_descriptorBox);
 }

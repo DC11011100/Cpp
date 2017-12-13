@@ -18,9 +18,6 @@ public:
 
     Ui::MainWindow* getUI();
 
-    //Prototypes
-    //void dataMan_eventHandler(Setting *setting_Widget, Option *option_Widget);
-
 private:
     Ui::MainWindow *ui;
 };
