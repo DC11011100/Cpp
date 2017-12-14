@@ -12,6 +12,7 @@
 void CaseFinder::searchClient()
 {
     QStringList nameFilters = clientFilters->text().split(" ");
+    rootDir->setFilter(QDir::NoDotAndDotDot | QDir::AllDirs);
     QStringList results = rootDir->entryList();
     for (QString filter : nameFilters)
     {

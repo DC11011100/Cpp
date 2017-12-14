@@ -16,14 +16,7 @@ int main(int argc, char *argv[])
     Ui::MainWindow* ui = w.getUI();
     QWidget *canvas = ui->Central;
 
-    //Widget References     Casting each SubWidget as its corresponding class for access to class members
-    //ClientWidget *clientWidget = canvas->findChild<ClientWidget*>("clientWidget");
-    //assert(clientWidget != 0);
-
-    //Create instance of EventHandler
-    //EventHandler *eventHandler = new EventHandler(clientWidget);
-
-    //Event Loop
+    w.setWindowTitle("Legal File Manager");
 
     return a.exec();
 }

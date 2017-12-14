@@ -59,10 +59,12 @@ void CaseFinder::createSelector()
 
     // Selector drop menus
     clientSelect = new QComboBox(this);
-    clientSelect->addItem("Choose Client...");
+    clientSelect->addItem("Select Client...");
+    rootDir->setFilter(QDir::NoDotAndDotDot | QDir::AllDirs);
+    clientSelect->addItems(rootDir->entryList());
 
     caseSelect   = new QComboBox(this);
-    caseSelect->addItem("Choose Case...");
+    caseSelect->addItem("Select Case...");
 
     // Layout
     QHBoxLayout *layout_selectorBox = new QHBoxLayout;
@@ -164,8 +166,8 @@ void CaseFinder::createFileManager()
     fileTree = new QTreeView(this);
     fileTree->setModel(fileViewer);
     fileTree->setRootIndex(fileViewer->index(rootDir->absolutePath()));
-    fileTree->resizeColumnToContents(0);
-    fileTree->resizeColumnToContents(1);
+    fileTree->setColumnWidth(0,200);
+    fileTree->setExpandsOnDoubleClick(false);
 
     // Layout
     QVBoxLayout *layout_fileManagerBox = new QVBoxLayout;
