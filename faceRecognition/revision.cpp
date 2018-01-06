@@ -19,106 +19,165 @@ typedef enum
 {
     s_Setup,
     s_Sample,
-    s_Search,
-    s_Done
+    s_Detect,
+    s_Select,
+    s_Exit
 } State_t;
 
 static State_t state = s_Setup;
 
 
 // Uses HAAR cascades to detect faces. Also returns the Grayscale convervted frame
-vector <Rect> detectAndDisplay(Mat frame, Mat frame_gray, CascadeClassifier face_cascade )
+void filter_Faces(const Mat &frame, const Mat &bw_eq_frame, CascadeClassifier &face_cascade, vector<Rect> &faces)
 {
-  std::vector<Rect> faces;
-
-  //-- Detect faces
-  face_cascade.detectMultiScale( frame_gray, faces, 1.1, 2, 0|CV_HAAR_SCALE_IMAGE, Size(30, 30) );
-  
-  // [FIX ME]: Only single-face capture when taking P-samples
-  /*
-  if ( faces.size() > 1) 
+  // Detect faces
+  face_cascade.detectMultiScale(bw_eq_frame, faces, 1.1, 2, 0|CV_HAAR_SCALE_IMAGE, Size(30, 30));
+   
+  // Draw faces
+  for (int i = 0; i < faces.size(); i++)
   {
-      printf("Only one face at time!\n");
-      return vector<Rect>();
-  }*/ 
-  
-  // Display square around all faces 
-  for (int i=0; i<faces.size(); i++)
-  {
-      Point TL_corner( faces[i].x, faces[i].y );
-      Point TR_corner( faces[i].x + faces[i].width, faces[i].y + faces[i].height );
-      if( i == 0) rectangle( frame, TL_corner, TR_corner, Scalar(0,255, 0), 4, 8, 0 );
-      else        rectangle( frame, TL_corner, TR_corner, Scalar(255,0, 0), 4, 8, 0 );
+      Point top_left(faces[i].x, faces[i].y );
+      Point bottom_right(faces[i].x + faces[i].width, faces[i].y + faces[i].height );
+      
+      // Make the first discovered face the Face of Interest
+      if(i == 0) rectangle(frame, top_left, bottom_right, Scalar(0,255, 0), 4, 8, 0 );
+      else        rectangle(frame, top_left, bottom_right, Scalar(255,0, 0), 4, 8, 0 );
   }
-  
-  return faces;
 }
 
 
 
+State_t parse_Keys(char key, char last_key, State_t current_state)
+{
+    // Check for requested state change
+    if (last_key == '\e') 
+    {
+        switch(tolower(key))
+        {
+            case 's':
+            {
+                cout << "Sampling..." << endl
+                     << "    " << "Press 'p' for a positive sample and 'n' for a negative sample" << endl
+                return s_Sample;
+            }
+            case 'd':
+            {
+                cout << "Detecting..." << endl;
+                return s_Detect;
+            }
+            case 'x':
+            {
+                cout << "Exiting..." << endl;
+                return s_Exit;
+            }
+
+        }
+    }
+    
+    // Instructions or stay in the same state
+    if(key == '\e')
+    {
+        cout << "Menu:" << endl
+             << "'s' --> Sample" << endl
+             << "'d' --> Detect" << endl
+             << "'x' --> Exit"   << endl;;
+    }
+    
+    return current_state;
+}
+
 int main(int argc, char** argv)
 {
-    // Shared data
-
+    // Open up camera
     VideoCapture video(0);
     if(!video.isOpened())
     {
         cout << "Unable to startup camera...Exiting!\n";
         return -1;
     }
-        
+    
+    char key = '\0';
+    char last_key = '\0';
+
     // Routine
     for(;;)
     {
-        char kin = waitKey(30);
-        if(kin == 'q') state = s_Done;
-
+        // Capture frame
         Mat frame;
         video >> frame;
         if(frame.empty()) continue; // Skip bad frames
 
+        // Parse keyboard input
+        key = waitKey(30);
+        state    = parse_Keys(key, last_key, state);
+        if(key > 0)
+        {
+            last_key = key;
+        }
+
         // Get gray scale image and Histogram Equalize to diminish lighting influences
-        Mat bw_sample;
-        cvtColor( frame, bw_sample, CV_BGR2GRAY );
-        equalizeHist( bw_sample, bw_sample);
-      
+        Mat bw_frame, bw_eq_frame;
+        cvtColor(frame, bw_frame, CV_BGR2GRAY);
+        equalizeHist(bw_frame, bw_eq_frame); // Potential Improvement: https://stackoverflow.com/questions/15007304/histogram-equalization-not-working-on-color-image-opencv
 
         // Load up face detection cascades for face localization HAAR
         CascadeClassifier face_cascade;
-        vector<Rect> faces(10);
         if( !face_cascade.load( PATH_FACE_CASCADE ) )
         { 
             printf("--(!)Error loading\n"); 
             return -1; 
         }
-        faces = detectAndDisplay( frame, bw_sample, face_cascade);        
 
+        // Detect faces and draw onto frame
+        vector<Rect> faces(16);
+        filter_Faces(frame, bw_eq_frame, face_cascade, faces);             
         imshow("Filter Cascades", frame);
 
         switch(state)
         {
             case(s_Setup):
-            {
+            {   
+                cout << "Press 'esc' for the Menu" << endl
+                     << "Let's start by sampling." << endl
+                     << "Press 'p' for a positive sample and 'n' for a negative sample" << endl
+                     << "Note: Have roughly equal number of positive/negative samples to mitigate biasing" << endl;
                 state = s_Sample;
                 break;
             }
             case(s_Sample):
             {
+                switch(key)
+                {
+                    case 'p':
+                    {
+                        cout << "+1 Positive Sample" << endl;
+                        break;
+                    }
+                    case 'n':
+                    {
+                        cout << "+1 Negative Sample" << endl;
+                        break;
+                    }
+                }
                 break;
             }
-            case(s_Search):
+            case(s_Detect):
             {
                 break;
             }
-            case(s_Done):
+            case(s_Select):
             {
-                cout << "Thanks for trying me out...Exiting!\n";
+                break;
+            }
+            case(s_Exit):
+            {
                 return 0;
             }
             default:
             {
-                cout << "Oh no! Something unexpected has happened\n"
-                     << "ERROR: Your state has gone haywire!\n";
+                cout << __FILE__ << ":" << __func__ << ":" << "Line: " << __LINE__
+                     << "Corrupted state...Exiting!" << endl;
+                return 1;
             }
         }
     }
