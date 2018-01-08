@@ -9,6 +9,7 @@
 #include <time.h>
 
 #define PATH_FACE_CASCADE "./HAAR_faceData/haarcascade_frontalface_alt.xml"
+#define PATH_SAMPLE_DIR "training_data"
 #define DEBUG
 
 using namespace cv;
@@ -45,8 +46,51 @@ void filter_Faces(const Mat &frame, const Mat &bw_eq_frame, CascadeClassifier &f
   }
 }
 
+// File operations
+uint8_t load_sample_count(int &positive, int &negative, const string &sample_dir_path)
+{
+    ifstream counts(sample_dir_path + "/info.txt");
+    if(counts.good())
+    {
+        counts >> positive >> negative;
+    } else
+    {
+        positive = 0;
+        negative = 0;
+    }
+    
+    counts.close();
+}
 
+uint8_t write_sample_count(int positive, int negative, const string &sample_dir_path)
+{
+    ofstream counts(sample_dir_path + "/info.txt");
+    if(counts.good())
+    {
+        counts << "Number of p-samples = " << positive << endl
+               << "Number of n-samples = " << negative << endl;
+    } else
+    {
+        cout << "Couldn't open " << sample_dir_path << endl;
+    }
 
+    counts.close();
+}
+
+// True for positive
+uint8_t sample(bool sample_type, int sample_number, const string &sample_dir_path)
+{
+  /*
+    if(sample_type)
+    {
+        
+    } else
+    {
+    }
+    */
+}
+
+// State transitions
 State_t parse_Keys(char key, char last_key, State_t current_state)
 {
     // Check for requested state change
@@ -57,11 +101,19 @@ State_t parse_Keys(char key, char last_key, State_t current_state)
             case 's':
             {
                 cout << "Sampling..." << endl
-                     << "    " << "Press 'p' for a positive sample and 'n' for a negative sample" << endl
+                     << "    " << "Press 'p' for a positive sample and 'n' for a negative sample" << endl;
                 return s_Sample;
             }
             case 'd':
             {
+                cout << "Training...";
+                // Compute HOG feature vector
+                
+                // Write/cache  sample diagnostics
+                
+                // Train the SVM
+
+                // Start using SVM to verify face
                 cout << "Detecting..." << endl;
                 return s_Detect;
             }
@@ -80,11 +132,13 @@ State_t parse_Keys(char key, char last_key, State_t current_state)
         cout << "Menu:" << endl
              << "'s' --> Sample" << endl
              << "'d' --> Detect" << endl
-             << "'x' --> Exit"   << endl;;
+             << "'x' --> Exit"   << endl;
     }
     
     return current_state;
 }
+
+
 
 int main(int argc, char** argv)
 {
@@ -96,6 +150,23 @@ int main(int argc, char** argv)
         return -1;
     }
     
+    // Load up face detection cascades for face localization HAAR
+    cout << "Loading HAAR data..." << endl;
+    CascadeClassifier face_cascade;
+    if( !face_cascade.load( PATH_FACE_CASCADE ) )
+    { 
+        printf("--(!)Error loading\n"); 
+        return -1; 
+    }
+    
+    // Load sample diagnostics
+    cout << "Loading HOG data" << endl;
+    int positive_count, negative_count;
+    load_sample_count(positive_count, negative_count, PATH_SAMPLE_DIR);
+    cout << "Loaded:" << endl
+         << "p-count = " << positive_count << endl
+         << "n-count = " << negative_count << endl;
+
     char key = '\0';
     char last_key = '\0';
 
@@ -120,14 +191,6 @@ int main(int argc, char** argv)
         cvtColor(frame, bw_frame, CV_BGR2GRAY);
         equalizeHist(bw_frame, bw_eq_frame); // Potential Improvement: https://stackoverflow.com/questions/15007304/histogram-equalization-not-working-on-color-image-opencv
 
-        // Load up face detection cascades for face localization HAAR
-        CascadeClassifier face_cascade;
-        if( !face_cascade.load( PATH_FACE_CASCADE ) )
-        { 
-            printf("--(!)Error loading\n"); 
-            return -1; 
-        }
-
         // Detect faces and draw onto frame
         vector<Rect> faces(16);
         filter_Faces(frame, bw_eq_frame, face_cascade, faces);             
@@ -151,11 +214,15 @@ int main(int argc, char** argv)
                     case 'p':
                     {
                         cout << "+1 Positive Sample" << endl;
+                        sample(true, positive_count++, PATH_SAMPLE_DIR);
+                        
                         break;
                     }
                     case 'n':
                     {
                         cout << "+1 Negative Sample" << endl;
+                        sample(false, negative_count++, PATH_SAMPLE_DIR);
+
                         break;
                     }
                 }
@@ -171,6 +238,11 @@ int main(int argc, char** argv)
             }
             case(s_Exit):
             {
+                // Save sample diagnostics
+                write_sample_count(positive_count, negative_count, PATH_SAMPLE_DIR);
+
+                // Save SVM XML
+
                 return 0;
             }
             default:
