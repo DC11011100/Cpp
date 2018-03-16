@@ -1,7 +1,7 @@
 build_FRMachine: build_FRMachine.cpp
 	g++ -stdlib=libc++ -Wc++11-extensions -ggdb `pkg-config --cflags --libs opencv` build_FRMachine.cpp -o build_FRMachine
 build_revision: revision.cpp
-	g++ -stdlib=libc++ -Wc++11-extensions -ggdb `pkg-config --cflags --libs opencv` revision.cpp -o revision
+	g++ -std=c++11 -stdlib=libc++ -Wc++11-extensions -ggdb `pkg-config --cflags --libs opencv` revision.cpp -o revision
 clean:
 	rm -rf ./build_FRMachine ./build_FRMachine.dSYM ./revision ./revision.dSYM ./myface_SVMdetector.yml
 cleaner:
