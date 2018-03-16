@@ -60,6 +60,7 @@ uint8_t load_sample_count(int &positive, int &negative, const string &sample_dir
     }
     
     counts.close();
+    return 0;
 }
 
 uint8_t write_sample_count(int positive, int negative, const string &sample_dir_path)
@@ -71,23 +72,24 @@ uint8_t write_sample_count(int positive, int negative, const string &sample_dir_
                << "Number of n-samples = " << negative << endl;
     } else
     {
-        cout << "Couldn't open " << sample_dir_path << endl;
+        cout << "ERROR: Couldn't open " << sample_dir_path << endl;
     }
 
     counts.close();
+    return 0;
 }
 
 // True for positive
 uint8_t sample(bool sample_type, int sample_number, const string &sample_dir_path)
 {
-  /*
     if(sample_type)
     {
-        
+        cout << "Positive " << sample_number << endl;
     } else
     {
+        cout << "Negative " << sample_number << endl;
     }
-    */
+    return 0;
 }
 
 // State transitions
@@ -106,7 +108,7 @@ State_t parse_Keys(char key, char last_key, State_t current_state)
             }
             case 'd':
             {
-                cout << "Training...";
+                cout << "Training..." << endl;
                 // Compute HOG feature vector
                 
                 // Write/cache  sample diagnostics
