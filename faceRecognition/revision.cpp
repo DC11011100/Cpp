@@ -1,3 +1,4 @@
+// THE paper: https://lear.inrialpes.fr/people/triggs/pubs/Dalal-cvpr05.pdf
 #include "opencv2/objdetect.hpp"
 #include "opencv2/highgui.hpp"
 #include "opencv2/imgproc.hpp"
@@ -12,11 +13,27 @@
 #define PATH_SAMPLE_DIR "training_data"
 #define DEBUG
 
+
+typedef enum
+{
+    s_Setup,
+    s_Sample,
+    s_Detect,
+    s_Select,
+    s_Exit
+} State_t;
+
+static State_t state = s_Setup;
+
 using namespace cv;
 using namespace cv::ml;
 using namespace std;
 
 
+void error(string fname, string msg)
+{
+    cout << " [" << fname << "] " << "ERROR: " << msg;
+}
 
 class FaceIdentifier
 {
@@ -32,37 +49,37 @@ class FaceIdentifier
         int positive_count;
         int negative_count; 
         
-        /*
-        * Convert training/testing set to be used by OpenCV Machine Learning algorithms.
-        * TrainData is a matrix of size (#samples x max(#cols,#rows) per samples), in 32FC1.
-        * Transposition of samples are made if needed.
-        */
         // TODO
-        void forceFit(const vector <Mat> & training_set_partition)
+        // Desc: Images get WxH for HOG descriptor which corresponds to subtiles for HOG
+        //       This subtile matrix results in a matrix of gradients also WxH
+        //       Func flattens this WxH for our 1-D input layer. It does this for all samples in batch
+        //       creating a matrix which is First_layer_width x Nsamples, with each row being a sample's
+        //       flattened HOG
+         
+        void flattenInputs(const vector <Mat> & gradients)
         {
-            printf("Enforcing compatability for batch of %d", training_set_partition.size());
-            //--Convert data
-            const int rows = (int)training_set_partition.size();
-            const int cols = (int)std::max( training_set_partition[0].cols, training_set_partition[0].rows );
-            
-            Mat tmp(1, cols, CV_32FC1); //< used for transposition if needed
-            current_batch = Mat(rows, cols, CV_32FC1);
-            vector <Mat>::const_iterator itr = training_set_partition.begin();
-            vector <Mat>::const_iterator end = training_set_partition.end();
-            for( int i = 0 ; itr != end ; ++itr, ++i )
-            {
-                CV_Assert( itr->cols == 1 ||
-                    itr->rows == 1 );
-                if( itr->cols == 1 )
-                {
-                    transpose( *(itr), tmp );
-                    tmp.copyTo( current_batch.row( i ) );
-                }
-                else if( itr->rows == 1 )
-                {
-                    itr->copyTo( current_batch.row( i ) );
-                }
-            }
+//            printf("Enforcing compatability for batch of %d", training_set_partition.size());
+//            //--Convert data
+//            const int rows = (int)training_set_partition.size();
+//            const int cols = (int)std::max( training_set_partition[0].cols, training_set_partition[0].rows );
+//            
+//            Mat tmp(1, cols, CV_32FC1); //< used for transposition if needed
+//            current_batch = Mat(rows, cols, CV_32FC1);
+//            vector <Mat>::const_iterator itr = training_set_partition.begin();
+//            vector <Mat>::const_iterator end = training_set_partition.end();
+//            for( int i = 0 ; itr != end ; ++itr, ++i )
+//            {
+//                CV_Assert( itr->cols == 1 || itr->rows == 1 );
+//                if( itr->cols == 1 )
+//                {
+//                    transpose( *(itr), tmp );
+//                    tmp.copyTo( current_batch.row( i ) );
+//                }
+//                else if( itr->rows == 1 )
+//                {
+//                    itr->copyTo( current_batch.row( i ) );
+//                }
+//            }
         } 
         void initSVM()
         { 
@@ -125,7 +142,7 @@ class FaceIdentifier
             cout << "Traing batch";
             
             // Make sure data can be mapped to classifier dimensions, set as current batch and train
-            forceFit(hogs);
+            this->flattenInputs(hogs);
             svm->train(current_batch, ROW_SAMPLE, Mat(labels));
         }
 
@@ -133,6 +150,7 @@ class FaceIdentifier
         {
             svm->save(path_savefile);
         }
+};
 
 
 class HaarClassifier
@@ -173,10 +191,10 @@ class HaarClassifier
     void findFaces(const Mat &finput)
     {
         cascade.detectMultiScale(mcurrent_frame_conditioned, 
-                                      vfaces_in_frame, 
-                                      1.1, 2, 
-                                      0|CV_HAAR_SCALE_IMAGE, 
-                                      Size(30, 30));
+                                 vfaces_in_frame, 
+                                 1.1, 2, 
+                                 0|CV_HAAR_SCALE_IMAGE, 
+                                 Size(30, 30));
     }
 
     public:
@@ -215,16 +233,9 @@ class HaarClassifier
 
 
 
-typedef enum
-{
-    s_Setup,
-    s_Sample,
-    s_Detect,
-    s_Select,
-    s_Exit
-} State_t;
 
-const string getStateName(State_t state)
+
+string getStateName(State_t state)
 {
     switch(state)
     {
@@ -233,10 +244,11 @@ const string getStateName(State_t state)
         case s_Detect : return "Detecting";
         case s_Select : return "Selecting";
         case s_Exit   : return "Exiting";
+        default       : error(__FUNCTION__, "Corrupted state!");
     }
 }
 
-static State_t state = s_Setup;
+
 
 
 // File operations
@@ -403,7 +415,7 @@ int main(int argc, char** argv)
 {
     // Open up camera
     VideoCapture video(0);
-    if(!cameraCheck(video)) return -1;
+    if(!cameraCheck( video )) return -1;
     
 
     // Load up face detection cascades for face localization HAAR
@@ -492,8 +504,7 @@ int main(int argc, char** argv)
             }
             default:
             {
-                cout << __FILE__ << ":" << __func__ << ":" << "Line: " << __LINE__
-                     << "Corrupted state...Exiting!" << endl;
+                error(__FUNCTION__, "Corrupted State!");
                 return 1;
             }
         }
