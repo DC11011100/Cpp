@@ -229,7 +229,6 @@ int main(int argc, char** argv) {
             test = bw_sample(face[0]);
             test_locations.clear();
             sample_hog.detectMultiScale( test, test_locations );
-
             printf("detect multiscale is chilling\n");
 
             for (int i=0; i<test_locations.size(); i++) 
