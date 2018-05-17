@@ -217,8 +217,9 @@ class HaarClassifier
             
             if (path2coefficients.size() > 0) load(path2coefficients);
         }
-        // TODO
-        void showFaces(const Mat & img_2check, Mat & img_2boverlaid)
+        // Desc: Take some input image, find the faces and update the capture faces this
+        //       HAAR classifier knows of, then draw those faces on some temporary image and show it
+        void showFaces(const Mat & img_2check)
         {
             // Read current frame, dont bother processing bad frames
             if (img_2check.empty()) return;
@@ -226,14 +227,13 @@ class HaarClassifier
             // Massage the input a bit, and store for reference
             neatralizeInput(img_2check, mcurrent_frame_conditioned);
 
-            // Update faces vector with those in current frame then overlay onto img_2boverlaid
+            // Update faces vector with those in current frame 
             findFaces(img_2check);
-            drawFacesOn(mcurrent_frame_conditioned);
-            imshow("Conditioned Input", mcurrent_frame_conditioned);
-            
-            
-            //imshow("Filter Cascades", img_2boverlaid);
-            imshow("Filter Cascades", img_2check);
+
+            // Overlay the discovered faces on input image and show it
+            Mat display = img_2check.clone();
+            drawFacesOn(display);
+            imshow("[HAAR Classifier]: Faces In Frame", display);
         }
 
         bool load(string path_cascades_yml)
@@ -459,7 +459,6 @@ int main(int argc, char** argv)
     char key = '\0';
     char last_key = '\0';
     Mat current_frame;
-    Mat output_frame;
     for(;;)
     {
         // Capture frame
@@ -501,7 +500,7 @@ int main(int argc, char** argv)
                     }
                     default:
                     {
-                        haar.showFaces(current_frame, output_frame);
+                        haar.showFaces(current_frame);
                     }
                 }
                 break;
