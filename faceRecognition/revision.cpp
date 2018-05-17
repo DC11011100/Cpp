@@ -38,13 +38,23 @@ void error(string fname, string msg)
 class FaceIdentifier
 {
     private:
-        vector  <Mat>  current_batch;
+        
+        // Transformed input data, ready for first layer input. Row_i of this Matrix corresponds to 
+        // the ith Sample's
+        Mat fitted_batch;
+       
+       
         HOGDescriptor hog;
-        vector  <Mat>  gradients;
+
+        // Flattening a gradient grid gives a single sample's Input layer vector. We'll need our SVM to 
+        // to correlate this with one our binary labels. 
+        // In my case (Is the face on screen David)? : yes-label : no-label
         vector <int>  labels;
+
+        // Same things as gradients but left 
         vector <float> descriptors;
         vector <Point> locations;
-        Ptr<SVM> svm;
+        Ptr    <SVM> svm;
 
         int positive_count;
         int negative_count; 
@@ -56,30 +66,29 @@ class FaceIdentifier
         //       creating a matrix which is First_layer_width x Nsamples, with each row being a sample's
         //       flattened HOG
          
-        void flattenInputs(const vector <Mat> & gradients)
+        void flattenBatch(const vector <Mat> & gradients)
         {
-//            printf("Enforcing compatability for batch of %d", training_set_partition.size());
-//            //--Convert data
-//            const int rows = (int)training_set_partition.size();
-//            const int cols = (int)std::max( training_set_partition[0].cols, training_set_partition[0].rows );
-//            
-//            Mat tmp(1, cols, CV_32FC1); //< used for transposition if needed
-//            current_batch = Mat(rows, cols, CV_32FC1);
-//            vector <Mat>::const_iterator itr = training_set_partition.begin();
-//            vector <Mat>::const_iterator end = training_set_partition.end();
-//            for( int i = 0 ; itr != end ; ++itr, ++i )
-//            {
-//                CV_Assert( itr->cols == 1 || itr->rows == 1 );
-//                if( itr->cols == 1 )
-//                {
-//                    transpose( *(itr), tmp );
-//                    tmp.copyTo( current_batch.row( i ) );
-//                }
-//                else if( itr->rows == 1 )
-//                {
-//                    itr->copyTo( current_batch.row( i ) );
-//                }
-//            }
+            printf("Enforcing compatability for batch of %d", gradients.size());
+            const int rows = (int)gradients.size();
+            const int cols = (int)std::max( gradients[0].cols, gradients[0].rows );
+            
+            Mat tmp(1, cols, CV_32FC1); // < used for transposition if needed
+            fitted_batch = Mat(rows, cols, CV_32FC1);
+            vector <Mat>::const_iterator itr = gradients.begin();
+            vector <Mat>::const_iterator end = gradients.end();
+            for( int i = 0 ; itr != end ; ++itr, ++i )
+            {
+                CV_Assert( itr->cols == 1 || itr->rows == 1 );
+                if( itr->cols == 1 )
+                {
+                    transpose( *(itr), tmp );
+                    tmp.copyTo( fitted_batch.row( i ) );
+                }
+                else if( itr->rows == 1 )
+                {
+                    itr->copyTo( fitted_batch.row( i ) );
+                }
+            }
         } 
         void initSVM()
         { 
@@ -124,17 +133,18 @@ class FaceIdentifier
         {
             svm->load(path_savefile);
         }
-
+        
+        // TODO
         void sample(bool isPositive, Mat & cropped_face)
         {
-            push_HOG(gradients, cropped_face, hog, locations, descriptors);
-            labels.push_back(isPositive ? +1 : -1);
-            char savename[64] = {0};
-            sprintf(savename, "./training_HOGs/%s.%d.png", isPositive ? "pos" : "neg", 
-                            isPositive ? positive_count : negative_count); 
-            imwrite(savename, cropped_face);
-            positive_count++;
-            negative_count++;
+//            push_HOG(gradients, cropped_face, hog, locations, descriptors);
+//            labels.push_back(isPositive ? +1 : -1);
+//            char savename[64] = {0};
+//            sprintf(savename, "./training_HOGs/%s.%d.png", isPositive ? "pos" : "neg", 
+//                            isPositive ? positive_count : negative_count); 
+//            imwrite(savename, cropped_face);
+//            positive_count++;
+//            negative_count++;
         }
 
         void train(const vector <Mat> & hogs, const vector <int> & labels)
@@ -142,8 +152,8 @@ class FaceIdentifier
             cout << "Traing batch";
             
             // Make sure data can be mapped to classifier dimensions, set as current batch and train
-            this->flattenInputs(hogs);
-            svm->train(current_batch, ROW_SAMPLE, Mat(labels));
+            flattenBatch(hogs);
+            svm->train(fitted_batch, ROW_SAMPLE, Mat(labels));
         }
 
         void save(const string & path_savefile)
@@ -156,6 +166,7 @@ class FaceIdentifier
 class HaarClassifier
 {
     private:
+
         Mat mcurrent_frame_conditioned;
         vector<Rect> vfaces_in_frame; // Size 16
         CascadeClassifier cascade; 
@@ -173,22 +184,22 @@ class HaarClassifier
 
 
     // Uses HAAR cascades to detect faces. Also returns the Grayscale convervted frame
-    void drawFaces(const Mat &display)
+    void drawFacesOn(Mat & img_display)
     {
-        // Draw faces onto display frame
+        // Draw faces onto img_display frame
         for (int i = 0; i < vfaces_in_frame.size(); i++)
         {
             Point top_left(vfaces_in_frame[i].x, vfaces_in_frame[i].y );
             Point bottom_right(vfaces_in_frame[i].x + vfaces_in_frame[i].width, vfaces_in_frame[i].y + vfaces_in_frame[i].height );
             
             // Make the first discovered face the Face of Interest
-            if(i == 0) rectangle(display, top_left, bottom_right, Scalar(0,255, 0), 4, 8, 0 );
-            else       rectangle(display, top_left, bottom_right, Scalar(255,0, 0), 4, 8, 0 );
+            if(i == 0) rectangle(img_display, top_left, bottom_right, Scalar(0,255, 0), 4, 8, 0 );
+            else       rectangle(img_display, top_left, bottom_right, Scalar(255,0, 0), 4, 8, 0 );
         }
     }
 
     // Desc : Update faces vector with faces in given frame 
-    void findFaces(const Mat &finput)
+    void findFaces(const Mat & finput)
     {
         cascade.detectMultiScale(mcurrent_frame_conditioned, 
                                  vfaces_in_frame, 
@@ -198,30 +209,39 @@ class HaarClassifier
     }
 
     public:
-
-        void showFaces(const Mat &finput)
+        HaarClassifier(string path2coefficients = "")
+        {
+            Mat mcurrent_frame_conditioned = Mat();
+            vector<Rect> vfaces_in_frame   = vector <Rect>();// Size 16
+            CascadeClassifier cascade      = CascadeClassifier();
+            
+            if (path2coefficients.size() > 0) load(path2coefficients);
+        }
+        // TODO
+        void showFaces(const Mat & img_2check, Mat & img_2boverlaid)
         {
             // Read current frame, dont bother processing bad frames
-            if (finput.empty()) return;
+            if (img_2check.empty()) return;
 
             // Massage the input a bit, and store for reference
-            neatralizeInput(finput, mcurrent_frame_conditioned);
-      
-            Mat display;
-            // Update faces vector with those in current frame then overlay onto display
-            findFaces(finput);
-            drawFaces(display);
+            neatralizeInput(img_2check, mcurrent_frame_conditioned);
+
+            // Update faces vector with those in current frame then overlay onto img_2boverlaid
+            findFaces(img_2check);
+            drawFacesOn(mcurrent_frame_conditioned);
+            imshow("Conditioned Input", mcurrent_frame_conditioned);
             
-            imshow("Filter Cascades", display);
             
+            //imshow("Filter Cascades", img_2boverlaid);
+            imshow("Filter Cascades", img_2check);
         }
 
-        bool load(const string &path_cascades_yml)
+        bool load(string path_cascades_yml)
         {
-            printf("Loading HAAR data from\n    '%s'", path_cascades_yml);
+            cout << "Loading HAAR data from\n    '" << path_cascades_yml << "'\n";
             if( !cascade.load(path_cascades_yml) )
             { 
-                printf("ERROR: Couldn't load HAAR coefficients file"); 
+                error(__func__, "Couldn't load HAAR coefficients file"); 
                 return false; 
             }
             else return true;
@@ -439,6 +459,7 @@ int main(int argc, char** argv)
     char key = '\0';
     char last_key = '\0';
     Mat current_frame;
+    Mat output_frame;
     for(;;)
     {
         // Capture frame
@@ -480,7 +501,7 @@ int main(int argc, char** argv)
                     }
                     default:
                     {
-                        haar.showFaces(current_frame);
+                        haar.showFaces(current_frame, output_frame);
                     }
                 }
                 break;
