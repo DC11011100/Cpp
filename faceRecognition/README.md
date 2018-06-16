@@ -19,6 +19,7 @@ https://www.cs.cmu.edu/~efros/courses/LBMV07/Papers/viola-cvpr-01.pdf
 
 # To Do
  - Transform colorspace to YCbCr to separate light intensity. Only equalize intensity then convert back to RGB for processing
+ - Profile accuracy with MNIST data set
 
 # Potential improvements
 - Convert sample images into eigen forms before processing. This will improve detection robustness.
