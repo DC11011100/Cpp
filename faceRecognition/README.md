@@ -17,9 +17,26 @@ https://lear.inrialpes.fr/people/triggs/pubs/Dalal-cvpr05.pdf
 https://www.cs.cmu.edu/~efros/courses/LBMV07/Papers/viola-cvpr-01.pdf
 
 
-# To Do
- - Transform colorspace to YCbCr to separate light intensity. Only equalize intensity then convert back to RGB for processing
- - Profile accuracy with MNIST data set
+# Revision 2 Cleanup To Do (revision.cpp)
+- [ ] Graphically represent conditioning and layers
+- [ ] HoG sampling
+        - [ ] FaceIdentifier::writeImage()
+        - [ ] FaceIdentifier::toHOG()
+        - [ ] FaceIdentifier::sample()
+        
+- [ ] Face Identifier batch processing
+        - [ ] FaceIdentifier::compatBatch() -- makes hog batch compatible with input layer
+        
+- [ ] post-trained svm --> saved.yml
+        - [ ] FaceIdentifer::sessionSave()
+        - [ ] FaceIdentifer::sessionLoad()
+
+# Improvements
+- [ ] Transform colorspace to YCbCr to separate light intensity. Only equalize intensity then convert back to RGB for processing
+
+# Testing
+- [ ] Profile accuracy with MNIST data set
+
 
 # Potential improvements
 - Convert sample images into eigen forms before processing. This will improve detection robustness.
