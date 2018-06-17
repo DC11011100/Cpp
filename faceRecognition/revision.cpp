@@ -9,7 +9,11 @@
 #include <vector>
 #include <time.h>
 #include <typeinfo>
+
+
+
 #define PATH_FACE_CASCADE "./HAAR_faceData/haarcascade_frontalface_alt.xml"
+#define FILENAME_SESSION_DATA "info.txt"
 #define PATH_SAMPLE_DIR "training_data"
 #define DEBUG
 
@@ -38,12 +42,9 @@ void error(string fname, string msg)
 class FaceIdentifier
 {
     private:
-        
         // Transformed input data, ready for first layer input. Row_i of this Matrix corresponds to 
         // the ith Sample's
         Mat fitted_batch;
-       
-       
         HOGDescriptor hog;
 
         // Flattening a gradient grid gives a single sample's Input layer vector. We'll need our SVM to 
@@ -55,6 +56,10 @@ class FaceIdentifier
         vector <float> descriptors;
         vector <Point> locations;
         Ptr    <SVM> svm;
+
+        // Session dir is for storing the post-conditioned sample images
+        string session_dir;
+        string session_metadata;
 
         int positive_count;
         int negative_count; 
@@ -104,12 +109,29 @@ class FaceIdentifier
             svm->setType(SVM::EPS_SVR); // C_SVC; // EPSILON_SVR; // may be also NU_SVR; // do regression task
         }
 
-        void writeSample(const Mat & src, const string & filename, bool isPositive)
+        void saveImage(const Mat & src, const string & filename, bool isPositive)
         {
             // Write image
             imwrite(filename, src);
         }
-
+        
+        // TODO: Verify still working
+        // Desc: From the sample directory, loads metadata about session like number of samples etc.
+        uint8_t loadSession()
+        {
+            ifstream meta(session_metadata);
+            if(meta.good())
+            {
+                meta >> positive_count >> negative_count;
+            } else
+            {
+                positive_count = 0;
+                negative_count = 0;
+            }
+            
+            meta.close();
+            return 0;
+        }
         
         void push_HOG(vector <Mat> & gradients, Mat & roi, HOGDescriptor & hog, vector <Point> & location, vector <float> & descriptors) 
         {
@@ -123,20 +145,59 @@ class FaceIdentifier
         }
 
     public:
-        FaceIdentifier() 
+        FaceIdentifier(const string & sample_dir, const string & meta_filename) : 
+            session_dir(sample_dir),
+            session_metadata(sample_dir + "/" + meta_filename)
+
         {
             initSVM();
+
             positive_count = 0;
             negative_count = 0;
         }
-        void load(const string & path_savefile) 
+
+
+        // TODO: Verify still working
+        uint8_t saveSession()
         {
+            ofstream meta(session_metadata);
+            if(meta.good())
+            {
+                meta << "Number of p-samples = " << positive_count << endl
+                       << "Number of n-samples = " << negative_count << endl;
+            } else
+            {
+                cout << "ERROR: Couldn't open " << session_metadata << endl;
+            }
+
+            meta.close();
+            return 0;
+        }
+
+        // TODO: Merge this with loadSession()
+        void loadPretrained(const string & path_savefile) 
+        {
+            // Metadata for corresponding session
+            
+
+            // Load previously trained yml
             svm->load(path_savefile);
         }
         
         // TODO
-        void sample(bool isPositive, Mat & cropped_face)
+        // Desc: Saves post-conditioned sample image to session dir and appends corresponding HoG to batch
+        void sample(bool isPositive, const Mat & cropped_face)
         {
+            if (isPositive)
+            {
+                cout << "p-count = " << ++positive_count << endl;
+            } else
+            {
+                cout << "n-count = " << ++negative_count << endl;
+            }
+
+
+                                  
 //            push_HOG(gradients, cropped_face, hog, locations, descriptors);
 //            labels.push_back(isPositive ? +1 : -1);
 //            char savename[64] = {0};
@@ -181,8 +242,6 @@ class HaarClassifier
               equalizeHist(inter, foutput);
         }
 
-
-
     // Uses HAAR cascades to detect faces. Also returns the Grayscale convervted frame
     void drawFacesOn(Mat & img_display)
     {
@@ -190,7 +249,8 @@ class HaarClassifier
         for (int i = 0; i < vfaces_in_frame.size(); i++)
         {
             Point top_left(vfaces_in_frame[i].x, vfaces_in_frame[i].y );
-            Point bottom_right(vfaces_in_frame[i].x + vfaces_in_frame[i].width, vfaces_in_frame[i].y + vfaces_in_frame[i].height );
+            Point bottom_right(vfaces_in_frame[i].x + vfaces_in_frame[i].width, 
+                               vfaces_in_frame[i].y + vfaces_in_frame[i].height);
             
             // Make the first discovered face the Face of Interest
             if(i == 0) rectangle(img_display, top_left, bottom_right, Scalar(0,255, 0), 4, 8, 0 );
@@ -246,12 +306,15 @@ class HaarClassifier
             }
             else return true;
         }
+        
+        // Desc: Return main face of interest, the face to be sampled
+        Mat getFOI()
+        {
+            return (vfaces_in_frame.size() > 0) ? 
+                   (mcurrent_frame_conditioned(vfaces_in_frame[0])) : 
+                   (mcurrent_frame_conditioned);
+        }
 };
-
-
-
-
-
 
 
 
@@ -271,51 +334,8 @@ string getStateName(State_t state)
 
 
 
-// File operations
-uint8_t load_sample_count(int &positive, int &negative, const string &sample_dir_path)
-{
-    ifstream counts(sample_dir_path + "/info.txt");
-    if(counts.good())
-    {
-        counts >> positive >> negative;
-    } else
-    {
-        positive = 0;
-        negative = 0;
-    }
-    
-    counts.close();
-    return 0;
-}
 
-uint8_t write_sample_count(int positive, int negative, const string &sample_dir_path)
-{
-    ofstream counts(sample_dir_path + "/info.txt");
-    if(counts.good())
-    {
-        counts << "Number of p-samples = " << positive << endl
-               << "Number of n-samples = " << negative << endl;
-    } else
-    {
-        cout << "ERROR: Couldn't open " << sample_dir_path << endl;
-    }
 
-    counts.close();
-    return 0;
-}
-
-// True for positive
-uint8_t sample(bool sample_type, int sample_number, const string &sample_dir_path)
-{
-    if(sample_type)
-    {
-        cout << "Positive " << sample_number << endl;
-    } else
-    {
-        cout << "Negative " << sample_number << endl;
-    }
-    return 0;
-}
 
 /*
 * Convert training/testing set to be used by OpenCV Machine Learning algorithms.
@@ -431,6 +451,11 @@ bool cameraCheck(VideoCapture stream)
     } else return true;
 }
 
+
+
+//---------------------------------------------------------------------------------------------------------------
+//                                                    MAIN
+//---------------------------------------------------------------------------------------------------------------
 int main(int argc, char** argv)
 {
     // Open up camera
@@ -443,17 +468,7 @@ int main(int argc, char** argv)
     if (!haar.load( PATH_FACE_CASCADE )) return -1;
 
     // Prepare Face Classifier
-    FaceIdentifier detective = FaceIdentifier();
-    
-    // Load sample diagnostics
-    cout << "Loading HOG data" << endl;
-    int positive_count, negative_count;
-    load_sample_count(positive_count, negative_count, PATH_SAMPLE_DIR);
-    cout << "Loaded:" << endl
-         << "p-count = " << positive_count << endl
-         << "n-count = " << negative_count << endl;
-
-
+    FaceIdentifier detective = FaceIdentifier(PATH_SAMPLE_DIR, FILENAME_SESSION_DATA);
 
     // Routine
     char key = '\0';
@@ -487,14 +502,14 @@ int main(int argc, char** argv)
                     case 'p':
                     {
                         cout << "+1 Positive Sample" << endl;
-                        sample(true, positive_count++, PATH_SAMPLE_DIR);
+                        detective.sample(true, haar.getFOI());
                         
                         break;
                     }
                     case 'n':
                     {
                         cout << "+1 Negative Sample" << endl;
-                        sample(false, negative_count++, PATH_SAMPLE_DIR);
+                        detective.sample(false, haar.getFOI());
 
                         break;
                     }
@@ -515,10 +530,8 @@ int main(int argc, char** argv)
             }
             case(s_Exit):
             {
-                // Save sample diagnostics
-                write_sample_count(positive_count, negative_count, PATH_SAMPLE_DIR);
-
-                // Save SVM XML
+                // Save training session
+                detective.saveSession();
 
                 return 0;
             }
