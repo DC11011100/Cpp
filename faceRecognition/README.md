@@ -20,16 +20,16 @@ https://www.cs.cmu.edu/~efros/courses/LBMV07/Papers/viola-cvpr-01.pdf
 # Revision 2 Cleanup To Do (revision.cpp)
 - [ ] Graphically represent conditioning and layers
 - [ ] HoG sampling
-        - [ ] FaceIdentifier::writeImage()
-        - [ ] FaceIdentifier::toHOG()
-        - [ ] FaceIdentifier::sample()
+     - [ ] FaceIdentifier::writeImage()
+     - [ ] FaceIdentifier::toHOG()
+     - [ ] FaceIdentifier::sample()
         
 - [ ] Face Identifier batch processing
-        - [ ] FaceIdentifier::compatBatch() -- makes hog batch compatible with input layer
+     - [ ] FaceIdentifier::compatBatch() -- makes hog batch compatible with input layer
         
 - [ ] post-trained svm --> saved.yml
-        - [ ] FaceIdentifer::sessionSave()
-        - [ ] FaceIdentifer::sessionLoad()
+     - [ ] FaceIdentifer::sessionSave()
+     - [ ] FaceIdentifer::sessionLoad()
 
 # Improvements
 - [ ] Transform colorspace to YCbCr to separate light intensity. Only equalize intensity then convert back to RGB for processing
