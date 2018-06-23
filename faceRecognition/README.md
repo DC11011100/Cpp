@@ -12,13 +12,14 @@ Pressing 'c' then crops, histogram equalizes, and stores a sample image into "./
 Histogram Equalization helps diminish the influence of varied light conditions.
 
 # Research
-http://epacis.net/jcis/PDF_JCIS/JCIS11-art.0101.pdf
-https://lear.inrialpes.fr/people/triggs/pubs/Dalal-cvpr05.pdf
-https://www.cs.cmu.edu/~efros/courses/LBMV07/Papers/viola-cvpr-01.pdf
-OpenCV SVM Implementation (Source from https://docs.opencv.org/3.0-beta/modules/ml/doc/support_vector_machines.html):
-     - Burges. A tutorial on support vector machines for pattern recognition, Knowledge Discovery and Data Mining 2(2), 1998
+* http://epacis.net/jcis/PDF_JCIS/JCIS11-art.0101.pdf
+* https://lear.inrialpes.fr/people/triggs/pubs/Dalal-cvpr05.pdf
+* https://www.cs.cmu.edu/~efros/courses/LBMV07/Papers/viola-cvpr-01.pdf
+
+* OpenCV SVM Implementation (Sourced from https://docs.opencv.org/3.0-beta/modules/ml/doc/support_vector_machines.html):
+    * Burges. A tutorial on support vector machines for pattern recognition, Knowledge Discovery and Data Mining 2(2), 1998
               (available online at http://citeseer.ist.psu.edu/burges98tutorial.html)
-     - (1, 2) C.-C. Chang and C.-J. Lin. LIBSVM: a library for support vector machines, ACM Transactions on Intelligent Systems 
+    * (1, 2) C.-C. Chang and C.-J. Lin. LIBSVM: a library for support vector machines, ACM Transactions on Intelligent Systems 
               and Technology, 2:27:1–27:27, 2011. (http://www.csie.ntu.edu.tw/~cjlin/papers/libsvm.pdf)
 
 
