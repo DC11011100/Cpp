@@ -25,10 +25,10 @@ Histogram Equalization helps diminish the influence of varied light conditions.
 
 # Revision 2 Cleanup To Do (revision.cpp)
 - [ ] Graphically represent conditioning and layers
-- [ ] HoG sampling
+- [X] HoG sampling
      - [X] FaceIdentifier::writeImage()
-     - [ ] FaceIdentifier::toHOG()
-     - [ ] FaceIdentifier::sample()
+     - [X] FaceIdentifier::toHOG()
+     - [X] FaceIdentifier::sample()
         
 - [ ] Face Identifier batch processing
      - [ ] FaceIdentifier::compatBatch() -- makes hog batch compatible with input layer
