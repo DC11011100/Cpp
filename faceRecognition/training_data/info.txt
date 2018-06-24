@@ -1,2 +1,2 @@
-Number of p-samples = 6
-Number of n-samples = 15
+Number of p-samples = 1
+Number of n-samples = 4

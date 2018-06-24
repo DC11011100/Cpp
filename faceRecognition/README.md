@@ -20,7 +20,7 @@ https://www.cs.cmu.edu/~efros/courses/LBMV07/Papers/viola-cvpr-01.pdf
 # Revision 2 Cleanup To Do (revision.cpp)
 - [ ] Graphically represent conditioning and layers
 - [ ] HoG sampling
-     - [ ] FaceIdentifier::writeImage()
+     - [X] FaceIdentifier::writeImage()
      - [ ] FaceIdentifier::toHOG()
      - [ ] FaceIdentifier::sample()
         
@@ -33,6 +33,8 @@ https://www.cs.cmu.edu/~efros/courses/LBMV07/Papers/viola-cvpr-01.pdf
 
 # Improvements
 - [ ] Transform colorspace to YCbCr to separate light intensity. Only equalize intensity then convert back to RGB for processing
+- [ ] Update existing model instead of training all at once. First investigate runtime of this, though it would allow small RAM footprint over time. 
+      Could also allow a user to incrementally improve their model as more data arrives.
 
 # Testing
 - [ ] Profile accuracy with MNIST data set

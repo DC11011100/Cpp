@@ -17,6 +17,10 @@
 #define PATH_SAMPLE_DIR "training_data"
 #define DEBUG
 
+#define FACE_INPUT_WINDOW Size(128, 128)
+#define HOG_STRIDE_WINDOW Size(32, 32)
+#define HOG_STRIDE_PADDING Size(0, 0)
+
 
 typedef enum
 {
@@ -33,6 +37,7 @@ using namespace cv;
 using namespace cv::ml;
 using namespace std;
 
+Mat get_hogdescriptor_visu(const Mat& color_origImg, vector<float>& descriptorValues, const Size & size );
 
 void error(string fname, string msg)
 {
@@ -42,6 +47,32 @@ void error(string fname, string msg)
 class FaceIdentifier
 {
     private:
+        struct Batch
+        {
+            vector < Mat >   gradients;  // 
+            vector < int >   labels;     // +1, -1. Corresponds with the nth sample
+
+            bool push( bool sample_type, const Mat & foi )
+            {
+                HOGDescriptor hog;
+                vector < float > descriptors;
+                Mat regularized_foi; 
+               
+                // Resize input faces to same size to maintain constant dimensionality of input layer 
+                resize(foi, regularized_foi, FACE_INPUT_WINDOW);
+                hog.winSize = FACE_INPUT_WINDOW;
+                hog.compute( regularized_foi, descriptors, HOG_STRIDE_WINDOW, HOG_STRIDE_PADDING );
+                gradients.push_back( Mat( descriptors ).clone() );
+
+                // Associate the computed HOG with a +/- value label for SVM
+                labels.push_back(sample_type ? +1 : -1);
+
+#ifdef DEBUG
+                imshow("HOG Visual", get_hogdescriptor_visu(regularized_foi, descriptors, regularized_foi.size() ));
+#endif
+            }
+        };
+
         // Transformed input data, ready for first layer input. Row_i of this Matrix corresponds to 
         // the ith Sample's
         Mat fitted_batch;
@@ -53,9 +84,8 @@ class FaceIdentifier
         vector <int>  labels;
 
         // Same things as gradients but left 
-        vector <float> descriptors;
-        vector <Point> locations;
         Ptr    <SVM> svm;
+        Batch batch;
 
         // Session dir is for storing the post-conditioned sample images
         string session_dir;
@@ -108,13 +138,7 @@ class FaceIdentifier
             svm->setC(0.01); // From paper, soft classifier
             svm->setType(SVM::EPS_SVR); // C_SVC; // EPSILON_SVR; // may be also NU_SVR; // do regression task
         }
-
-        void saveImage(const Mat & src, const string & filename, bool isPositive)
-        {
-            // Write image
-            imwrite(filename, src);
-        }
-        
+         
         // TODO: Verify still working
         // Desc: From the sample directory, loads metadata about session like number of samples etc.
         uint8_t loadSession()
@@ -188,13 +212,29 @@ class FaceIdentifier
         // Desc: Saves post-conditioned sample image to session dir and appends corresponding HoG to batch
         void sample(bool isPositive, const Mat & cropped_face)
         {
+            // Compute the HOG descriptor and associate with label
+            batch.push(isPositive, cropped_face);
+
+            // Save the image
+            string img_ext = ".png";
             if (isPositive)
             {
                 cout << "p-count = " << ++positive_count << endl;
+                imwrite(session_dir + "/positive/foi-" + to_string(positive_count) + img_ext, cropped_face);
+
+#ifdef DEBUG
+                imshow( "Sample (+) #" + to_string(positive_count), cropped_face);
+#endif
             } else
             {
                 cout << "n-count = " << ++negative_count << endl;
+                imwrite(session_dir + "/negative/foi-" + to_string(negative_count) + img_ext, cropped_face);
+
+#ifdef DEBUG
+                imshow("Sample (-) #" + to_string(negative_count) , cropped_face);
+#endif
             }
+
 
 
                                   
@@ -543,3 +583,164 @@ int main(int argc, char** argv)
         }
     }
 }
+
+
+
+// From http://www.juergenwiki.de/work/wiki/doku.php?id=public:hog_descriptor_computation_and_visualization
+Mat get_hogdescriptor_visu(const Mat& color_origImg, vector<float>& descriptorValues, const Size & size )
+{
+    const int DIMX = size.width;
+    const int DIMY = size.height;
+    float zoomFac = 3;
+    Mat visu;
+    resize(color_origImg, visu, Size( (int)(color_origImg.cols*zoomFac), (int)(color_origImg.rows*zoomFac) ) );
+
+    int cellSize        = 8;
+    int gradientBinSize = 9;
+    float radRangeForOneBin = (float)(CV_PI/(float)gradientBinSize); // dividing 180 into 9 bins, how large (in rad) is one bin?
+
+    // prepare data structure: 9 orientation / gradient strenghts for each cell
+    int cells_in_x_dir = DIMX / cellSize;
+    int cells_in_y_dir = DIMY / cellSize;
+    float*** gradientStrengths = new float**[cells_in_y_dir];
+    int** cellUpdateCounter   = new int*[cells_in_y_dir];
+    for (int y=0; y<cells_in_y_dir; y++)
+    {
+        gradientStrengths[y] = new float*[cells_in_x_dir];
+        cellUpdateCounter[y] = new int[cells_in_x_dir];
+        for (int x=0; x<cells_in_x_dir; x++)
+        {
+            gradientStrengths[y][x] = new float[gradientBinSize];
+            cellUpdateCounter[y][x] = 0;
+
+            for (int bin=0; bin<gradientBinSize; bin++)
+                gradientStrengths[y][x][bin] = 0.0;
+        }
+    }
+
+    // nr of blocks = nr of cells - 1
+    // since there is a new block on each cell (overlapping blocks!) but the last one
+    int blocks_in_x_dir = cells_in_x_dir - 1;
+    int blocks_in_y_dir = cells_in_y_dir - 1;
+
+    // compute gradient strengths per cell
+    int descriptorDataIdx = 0;
+    int cellx = 0;
+    int celly = 0;
+
+    for (int blockx=0; blockx<blocks_in_x_dir; blockx++)
+    {
+        for (int blocky=0; blocky<blocks_in_y_dir; blocky++)
+        {
+            // 4 cells per block ...
+            for (int cellNr=0; cellNr<4; cellNr++)
+            {
+                // compute corresponding cell nr
+                cellx = blockx;
+                celly = blocky;
+                if (cellNr==1) celly++;
+                if (cellNr==2) cellx++;
+                if (cellNr==3)
+                {
+                    cellx++;
+                    celly++;
+                }
+
+                for (int bin=0; bin<gradientBinSize; bin++)
+                {
+                    float gradientStrength = descriptorValues[ descriptorDataIdx ];
+                    descriptorDataIdx++;
+
+                    gradientStrengths[celly][cellx][bin] += gradientStrength;
+
+                } // for (all bins)
+
+
+                // note: overlapping blocks lead to multiple updates of this sum!
+                // we therefore keep track how often a cell was updated,
+                // to compute average gradient strengths
+                cellUpdateCounter[celly][cellx]++;
+
+            } // for (all cells)
+
+
+        } // for (all block x pos)
+    } // for (all block y pos)
+
+
+    // compute average gradient strengths
+    for (celly=0; celly<cells_in_y_dir; celly++)
+    {
+        for (cellx=0; cellx<cells_in_x_dir; cellx++)
+        {
+
+            float NrUpdatesForThisCell = (float)cellUpdateCounter[celly][cellx];
+
+            // compute average gradient strenghts for each gradient bin direction
+            for (int bin=0; bin<gradientBinSize; bin++)
+            {
+                gradientStrengths[celly][cellx][bin] /= NrUpdatesForThisCell;
+            }
+        }
+    }
+
+    // draw cells
+    for (celly=0; celly<cells_in_y_dir; celly++)
+    {
+        for (cellx=0; cellx<cells_in_x_dir; cellx++)
+        {
+            int drawX = cellx * cellSize;
+            int drawY = celly * cellSize;
+
+            int mx = drawX + cellSize/2;
+            int my = drawY + cellSize/2;
+
+            rectangle(visu, Point((int)(drawX*zoomFac), (int)(drawY*zoomFac)), Point((int)((drawX+cellSize)*zoomFac), (int)((drawY+cellSize)*zoomFac)), Scalar(100,100,100), 1);
+
+            // draw in each cell all 9 gradient strengths
+            for (int bin=0; bin<gradientBinSize; bin++)
+            {
+                float currentGradStrength = gradientStrengths[celly][cellx][bin];
+
+                // no line to draw?
+                if (currentGradStrength==0)
+                    continue;
+
+                float currRad = bin * radRangeForOneBin + radRangeForOneBin/2;
+
+                float dirVecX = cos( currRad );
+                float dirVecY = sin( currRad );
+                float maxVecLen = (float)(cellSize/2.f);
+                float scale = 2.5; // just a visualization scale, to see the lines better
+
+                // compute line coordinates
+                float x1 = mx - dirVecX * currentGradStrength * maxVecLen * scale;
+                float y1 = my - dirVecY * currentGradStrength * maxVecLen * scale;
+                float x2 = mx + dirVecX * currentGradStrength * maxVecLen * scale;
+                float y2 = my + dirVecY * currentGradStrength * maxVecLen * scale;
+
+                // draw gradient visualization
+                line(visu, Point((int)(x1*zoomFac),(int)(y1*zoomFac)), Point((int)(x2*zoomFac),(int)(y2*zoomFac)), Scalar(0,255,0), 1);
+
+            } // for (all bins)
+
+        } // for (cellx)
+    } // for (celly)
+
+
+    // don't forget to free memory allocated by helper data structures!
+    for (int y=0; y<cells_in_y_dir; y++)
+    {
+        for (int x=0; x<cells_in_x_dir; x++)
+        {
+            delete[] gradientStrengths[y][x];
+        }
+        delete[] gradientStrengths[y];
+        delete[] cellUpdateCounter[y];
+    }
+    delete[] gradientStrengths;
+    delete[] cellUpdateCounter;
+
+    return visu;
+
+} // get_hogdescriptor_visu
