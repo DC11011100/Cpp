@@ -36,6 +36,9 @@ Histogram Equalization helps diminish the influence of varied light conditions.
 - [ ] post-trained svm --> saved.yml
      - [ ] FaceIdentifer::sessionSave()
      - [ ] FaceIdentifer::sessionLoad()
+- [ ] Make desctructors for all classes
+- [ ] Clean up any memory leaks
+- [ ] Re-factor in SVM load capability
 
 # Improvements
 - [ ] Transform colorspace to YCbCr to separate light intensity. Only equalize intensity then convert back to RGB for processing
