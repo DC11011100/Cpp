@@ -49,8 +49,8 @@ class FaceIdentifier
     private:
         struct Batch
         {
-            vector < Mat >   gradients;  // 
-            vector < int >   labels;     // +1, -1. Corresponds with the nth sample
+            vector < Mat > hog_descriptors;  // 
+            vector < int > labels;     // +1, -1. Corresponds with the nth sample
 
             bool push( bool sample_type, const Mat & foi )
             {
@@ -62,9 +62,9 @@ class FaceIdentifier
                 resize(foi, regularized_foi, FACE_INPUT_WINDOW);
                 hog.winSize = FACE_INPUT_WINDOW;
                 hog.compute( regularized_foi, descriptors, HOG_STRIDE_WINDOW, HOG_STRIDE_PADDING );
-                gradients.push_back( Mat( descriptors ).clone() );
 
                 // Associate the computed HOG with a +/- value label for SVM
+                hog_descriptors.push_back( Mat( descriptors ).clone() );
                 labels.push_back(sample_type ? +1 : -1);
 
 #ifdef DEBUG
@@ -73,15 +73,14 @@ class FaceIdentifier
             }
         };
 
-        // Transformed input data, ready for first layer input. Row_i of this Matrix corresponds to 
-        // the ith Sample's
-        Mat fitted_batch;
-        HOGDescriptor hog;
-
         // Flattening a gradient grid gives a single sample's Input layer vector. We'll need our SVM to 
         // to correlate this with one our binary labels. 
         // In my case (Is the face on screen David)? : yes-label : no-label
         vector <int>  labels;
+
+        // Once we train an SVM, we can load a HOG Descriptor with it and it'll take care of computing and 
+        // evaluating incoming hogs
+        HOGDescriptor * hog_detector;
 
         // Same things as gradients but left 
         Ptr    <SVM> svm;
@@ -100,34 +99,34 @@ class FaceIdentifier
         //       Func flattens this WxH for our 1-D input layer. It does this for all samples in batch
         //       creating a matrix which is First_layer_width x Nsamples, with each row being a sample's
         //       flattened HOG
-         
-        void flattenBatch(const vector <Mat> & gradients)
+        
+        //TODO: fix up usages of this function 
+        void compatBatch(Mat & batch_inputL1, const vector <Mat> & hog_descriptors)
         {
-            printf("Enforcing compatability for batch of %d", gradients.size());
-            const int rows = (int)gradients.size();
-            const int cols = (int)std::max( gradients[0].cols, gradients[0].rows );
+            int rows = hog_descriptors.size();
+            int cols = std::max( hog_descriptors[0].cols, hog_descriptors[0].rows );
             
             Mat tmp(1, cols, CV_32FC1); // < used for transposition if needed
-            fitted_batch = Mat(rows, cols, CV_32FC1);
-            vector <Mat>::const_iterator itr = gradients.begin();
-            vector <Mat>::const_iterator end = gradients.end();
-            for( int i = 0 ; itr != end ; ++itr, ++i )
+            batch_inputL1 = Mat(rows, cols, CV_32FC1);
+            
+            vector <Mat>::const_iterator itr = hog_descriptors.begin();
+            for( int i = 0 ; itr != hog_descriptors.end() ; ++itr, ++i )
             {
                 CV_Assert( itr->cols == 1 || itr->rows == 1 );
                 if( itr->cols == 1 )
                 {
                     transpose( *(itr), tmp );
-                    tmp.copyTo( fitted_batch.row( i ) );
+                    tmp.copyTo( batch_inputL1.row( i ) );
                 }
                 else if( itr->rows == 1 )
                 {
-                    itr->copyTo( fitted_batch.row( i ) );
+                    itr->copyTo( batch_inputL1.row( i ) );
                 }
             }
         } 
         void initSVM()
         { 
-            Ptr <SVM> svm = SVM::create();
+            svm = SVM::create();
             svm->setCoef0(0.0);
             svm->setDegree(3);
             svm->setTermCriteria(TermCriteria( CV_TERMCRIT_ITER+CV_TERMCRIT_EPS, 1000, 1e-3 ));
@@ -157,16 +156,6 @@ class FaceIdentifier
             return 0;
         }
         
-        void push_HOG(vector <Mat> & gradients, Mat & roi, HOGDescriptor & hog, vector <Point> & location, vector <float> & descriptors) 
-        {
-            // Resize for uniform comparison
-            resize(roi, roi, Size(128,128) );
-            hog.winSize = roi.size();
-
-            // Compute HOG data and append to gradient list
-            hog.compute( roi, descriptors, Size(32,32), Size(0,0), location );
-            gradients.push_back( Mat(descriptors).clone() );
-        }
 
     public:
         FaceIdentifier(const string & sample_dir, const string & meta_filename) : 
@@ -174,8 +163,6 @@ class FaceIdentifier
             session_metadata(sample_dir + "/" + meta_filename)
 
         {
-            initSVM();
-
             positive_count = 0;
             negative_count = 0;
         }
@@ -233,28 +220,48 @@ class FaceIdentifier
 #ifdef DEBUG
                 imshow("Sample (-) #" + to_string(negative_count) , cropped_face);
 #endif
-            }
-
-
-
-                                  
-//            push_HOG(gradients, cropped_face, hog, locations, descriptors);
-//            labels.push_back(isPositive ? +1 : -1);
-//            char savename[64] = {0};
-//            sprintf(savename, "./training_HOGs/%s.%d.png", isPositive ? "pos" : "neg", 
-//                            isPositive ? positive_count : negative_count); 
-//            imwrite(savename, cropped_face);
-//            positive_count++;
-//            negative_count++;
+            }                          
         }
 
-        void train(const vector <Mat> & hogs, const vector <int> & labels)
+        void train()
         {
-            cout << "Traing batch";
-            
             // Make sure data can be mapped to classifier dimensions, set as current batch and train
-            flattenBatch(hogs);
-            svm->train(fitted_batch, ROW_SAMPLE, Mat(labels));
+            Mat batch_inputL1; // Updated with compat batch to make hog data input-layer compatible
+            compatBatch(batch_inputL1, batch.hog_descriptors);
+
+            // Initialize and train the SVM with the compatible input batch
+            initSVM();
+            svm->train(batch_inputL1, ROW_SAMPLE, Mat(batch.labels));
+            svm->save( "myFace.perceptron.yml" );
+
+
+            // Initialize hog detector with same window size as used in samples 
+            hog_detector = new HOGDescriptor;
+            hog_detector->winSize = HOG_STRIDE_WINDOW;
+
+            // Get the support vectors for the SVM
+            vector< float > svm_coefficients;
+            Mat svectors = svm->getSupportVectors();
+            int count_svectors = svectors.rows;
+            
+            // get the decision function
+            Mat alpha, svidx;
+            double rho = svm->getDecisionFunction(0, alpha, svidx);
+
+            // Sanity checks
+            CV_Assert( alpha.total() == 1 && svidx.total() == 1 && count_svectors == 1 );
+            CV_Assert( (alpha.type() == CV_64F && alpha.at<double>(0) == 1.) 
+                    || (alpha.type() == CV_32F && alpha.at<float>(0) == 1.f) );
+            CV_Assert( svectors.type() == CV_32F );
+            
+            // SVM detectors expects our decision function as the last element
+            svm_coefficients.resize(svectors.cols + 1);
+            memcpy(&svm_coefficients[0], svectors.ptr(), svectors.cols*sizeof(svm_coefficients[0]));
+            svm_coefficients[svectors.cols] = (float)-rho;
+
+            // Set the coeffecients and SVM HOG interpreter 
+            hog_detector->setSVMDetector( svm_coefficients );
+            
         }
 
         void save(const string & path_savefile)
@@ -408,31 +415,6 @@ void convert_to_ml(const std::vector< cv::Mat > & train_samples, cv::Mat& trainD
 
 }
 
-
-// Example from OpenCV2 SDK
-void train_svm( const vector< Mat > & gradient_lst, const vector< int > & labels )
-{
-    Mat train_data;
-    convert_to_ml( gradient_lst, train_data );
-
-    clog << "Start training...";
-    Ptr<SVM> svm = SVM::create();
-    svm->setCoef0(0.0);
-    svm->setDegree(3);
-    svm->setTermCriteria(TermCriteria( CV_TERMCRIT_ITER+CV_TERMCRIT_EPS, 1000, 1e-3 ));
-    svm->setGamma(0);
-    svm->setKernel(SVM::LINEAR);
-    svm->setNu(0.5);
-    svm->setP(0.1); // for EPSILON_SVR, epsilon in loss function?
-    svm->setC(0.01); // From paper, soft classifier
-    svm->setType(SVM::EPS_SVR); // C_SVC; // EPSILON_SVR; // may be also NU_SVR; // do regression task
-    svm->train(train_data, ROW_SAMPLE, Mat(labels));
-    clog << "...[done]" << endl;
-
-    svm->save( "myFace.perceptron.yml" );
-}
-
-
 // State transitions
 # define BTN_MENU 27 // Esc
 State_t parse_Keys(char key, char last_key, State_t current_state)
@@ -451,14 +433,6 @@ State_t parse_Keys(char key, char last_key, State_t current_state)
             case 'd':
             {
                 cout << "Training..." << endl;
-                // Compute HOG feature vector
-                
-                // Write/cache  sample diagnostics
-                
-                // Train the SVM
-
-                // Start using SVM to verify face
-                cout << "Detecting..." << endl;
                 return s_Detect;
             }
             case 'x':
@@ -524,6 +498,10 @@ int main(int argc, char** argv)
         state = parse_Keys(key, last_key, state);
         if(key > 0) last_key = key;
 
+        // No matter the state, let's show user's what face is being tracked
+        haar.showFaces(current_frame);
+
+        // FSM
         switch(state)
         {
             case(s_Setup):
@@ -553,15 +531,13 @@ int main(int argc, char** argv)
 
                         break;
                     }
-                    default:
-                    {
-                        haar.showFaces(current_frame);
-                    }
                 }
                 break;
             }
             case(s_Detect):
             {
+                //TODO: Reactivate once done
+                //detective.train();
                 break;
             }
             case(s_Select):
