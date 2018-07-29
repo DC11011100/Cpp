@@ -29,10 +29,10 @@ Histogram Equalization helps diminish the influence of varied light conditions.
      - [X] FaceIdentifier::writeImage()
      - [X] FaceIdentifier::toHOG()
      - [X] FaceIdentifier::sample()
-        
+     - [X] FaceIdentifier::multiFragSample()
 - [ ] Face Identifier batch processing
-     - [ ] FaceIdentifier::compatBatch() -- makes hog batch compatible with input layer
-        
+     - [X] FaceIdentifier::compatBatch() -- makes hog batch compatible with input layer
+   
 - [ ] post-trained svm --> saved.yml
      - [ ] FaceIdentifer::sessionSave()
      - [ ] FaceIdentifer::sessionLoad()

@@ -39,10 +39,15 @@ using namespace std;
 
 Mat get_hogdescriptor_visu(const Mat& color_origImg, vector<float>& descriptorValues, const Size & size );
 
-void error(string fname, string msg)
+void error(string funcname, string msg)
 {
-    cout << " [" << fname << "] " << "ERROR: " << msg;
+    cout << " [" << funcname << "] " << "ERROR: " << msg << endl;
 }
+
+void warning(string funcname, string msg)
+{
+    cout << " [" << funcname << "] " << "WARNING: " << msg << endl;
+} 
 
 class FaceIdentifier
 {
@@ -54,6 +59,8 @@ class FaceIdentifier
 
             bool push( bool sample_type, const Mat & foi )
             {
+                if (foi.empty()) return false;
+
                 HOGDescriptor hog;
                 vector < float > descriptors;
                 Mat regularized_foi; 
@@ -70,6 +77,7 @@ class FaceIdentifier
 #ifdef DEBUG
                 imshow("HOG Visual", get_hogdescriptor_visu(regularized_foi, descriptors, regularized_foi.size() ));
 #endif
+                return true;
             }
         };
 
@@ -84,6 +92,7 @@ class FaceIdentifier
 
         // Same things as gradients but left 
         Ptr    <SVM> svm;
+        bool     trained;
         Batch batch;
 
         // Session dir is for storing the post-conditioned sample images
@@ -113,12 +122,10 @@ class FaceIdentifier
             for( int i = 0 ; itr != hog_descriptors.end() ; ++itr, ++i )
             {
                 CV_Assert( itr->cols == 1 || itr->rows == 1 );
-                if( itr->cols == 1 )
-                {
+                if( itr->cols == 1 ) {
                     transpose( *(itr), tmp );
                     tmp.copyTo( batch_inputL1.row( i ) );
-                }
-                else if( itr->rows == 1 )
+                } else if( itr->rows == 1 )
                 {
                     itr->copyTo( batch_inputL1.row( i ) );
                 }
@@ -165,6 +172,7 @@ class FaceIdentifier
         {
             positive_count = 0;
             negative_count = 0;
+            trained        = false;
         }
 
 
@@ -200,7 +208,7 @@ class FaceIdentifier
         void sample(bool isPositive, const Mat & cropped_face)
         {
             // Compute the HOG descriptor and associate with label
-            batch.push(isPositive, cropped_face);
+            if (!batch.push(isPositive, cropped_face)) return;
 
             // Save the image
             string img_ext = ".png";
@@ -222,6 +230,22 @@ class FaceIdentifier
 #endif
             }                          
         }
+        
+        /* Desc: Grids the input frame into cells of same size as sample data. Then, creates samples of 
+         *       'isPositive' type for each cell whose area is completely within frame. Basically a way 
+         *       to be lazy and use one big photo instead of taking multiple photos for negative samples. 
+         */
+        void multiFragSample(bool isPositive, const Mat & frame, const Size & sampleSize = FACE_INPUT_WINDOW)
+        {
+            // Recall, Rects specify i,j from top-left corner
+            for ( int row = 0; (row + sampleSize.height) < frame.rows; row += sampleSize.height)
+            {
+                for ( int col = 0; (col + sampleSize.width) < frame.cols; col += sampleSize.width)
+                {
+                    sample(isPositive, frame(Rect(Point(col, row), sampleSize)));
+                }
+            }
+        }
 
         void train()
         {
@@ -232,12 +256,10 @@ class FaceIdentifier
             // Initialize and train the SVM with the compatible input batch
             initSVM();
             svm->train(batch_inputL1, ROW_SAMPLE, Mat(batch.labels));
-            svm->save( "myFace.perceptron.yml" );
-
 
             // Initialize hog detector with same window size as used in samples 
             hog_detector = new HOGDescriptor;
-            hog_detector->winSize = HOG_STRIDE_WINDOW;
+            hog_detector->winSize = FACE_INPUT_WINDOW;
 
             // Get the support vectors for the SVM
             vector< float > svm_coefficients;
@@ -261,12 +283,39 @@ class FaceIdentifier
 
             // Set the coeffecients and SVM HOG interpreter 
             hog_detector->setSVMDetector( svm_coefficients );
+            trained = true;
             
+            
+        }
+
+        bool isTrained()
+        {
+            return trained;
         }
 
         void save(const string & path_savefile)
         {
             svm->save(path_savefile);
+        }
+ 
+        bool detect(const Mat & conditioned_face)
+        {
+            if (conditioned_face.empty()) return false;
+
+            // Filler data to satisfy detectMultiScale call which typically operates on an entire image
+            // However, in this case the source image is just a face in question
+            vector < Rect > match_locations;
+            hog_detector->detectMultiScale( conditioned_face, match_locations);
+            
+            if      (0 == match_locations.size()) return false;
+            else if (1 == match_locations.size()) return true;
+            else
+            {
+                warning(__func__, "Multiple matches in an image which should just be a single face");
+                return false;
+            }
+           
+           
         }
 };
 
@@ -354,12 +403,22 @@ class HaarClassifier
             else return true;
         }
         
-        // Desc: Return main face of interest, the face to be sampled
+        // Desc: Return main face of interest, the face to be sampled. Additionally, resizes face
+        //       to be of same size as those used to train the SVM
         Mat getFOI()
         {
-            return (vfaces_in_frame.size() > 0) ? 
-                   (mcurrent_frame_conditioned(vfaces_in_frame[0])) : 
-                   (mcurrent_frame_conditioned);
+            Mat regularized_foi;
+            if (1 == vfaces_in_frame.size())
+            {
+                   resize(mcurrent_frame_conditioned(vfaces_in_frame[0]), regularized_foi, FACE_INPUT_WINDOW); 
+            }
+
+            return regularized_foi;
+        }
+        
+        const Mat & getFrame()
+        {
+            return mcurrent_frame_conditioned;
         }
 };
 
@@ -376,43 +435,6 @@ string getStateName(State_t state)
         case s_Exit   : return "Exiting";
         default       : error(__FUNCTION__, "Corrupted state!");
     }
-}
-
-
-
-
-
-
-
-/*
-* Convert training/testing set to be used by OpenCV Machine Learning algorithms.
-* TrainData is a matrix of size (#samples x max(#cols,#rows) per samples), in 32FC1.
-* Transposition of samples are made if needed.
-*/
-void convert_to_ml(const std::vector< cv::Mat > & train_samples, cv::Mat& trainData )
-{
-    //--Convert data
-    const int rows = (int)train_samples.size();
-    const int cols = (int)std::max( train_samples[0].cols, train_samples[0].rows );
-    cv::Mat tmp(1, cols, CV_32FC1); //< used for transposition if needed
-    trainData = cv::Mat(rows, cols, CV_32FC1 );
-    vector< Mat >::const_iterator itr = train_samples.begin();
-    vector< Mat >::const_iterator end = train_samples.end();
-    for( int i = 0 ; itr != end ; ++itr, ++i )
-    {
-        CV_Assert( itr->cols == 1 ||
-            itr->rows == 1 );
-        if( itr->cols == 1 )
-        {
-            transpose( *(itr), tmp );
-            tmp.copyTo( trainData.row( i ) );
-        }
-        else if( itr->rows == 1 )
-        {
-            itr->copyTo( trainData.row( i ) );
-        }
-    }
-
 }
 
 // State transitions
@@ -432,7 +454,7 @@ State_t parse_Keys(char key, char last_key, State_t current_state)
             }
             case 'd':
             {
-                cout << "Training..." << endl;
+                cout << "Detecting..." << endl;
                 return s_Detect;
             }
             case 'x':
@@ -519,15 +541,16 @@ int main(int argc, char** argv)
                 {
                     case 'p':
                     {
-                        cout << "+1 Positive Sample" << endl;
                         detective.sample(true, haar.getFOI());
                         
                         break;
                     }
                     case 'n':
                     {
-                        cout << "+1 Negative Sample" << endl;
-                        detective.sample(false, haar.getFOI());
+                        // Split up the current frame into as many subwindows of same size as rest of samples
+                        // TODO: do fragmentSample. Get conditioned input frame from HAAR
+                        // TODO: Verify the above, now implemented, works as intended
+                        detective.multiFragSample(false, haar.getFrame());
 
                         break;
                     }
@@ -536,8 +559,10 @@ int main(int argc, char** argv)
             }
             case(s_Detect):
             {
-                //TODO: Reactivate once done
-                //detective.train();
+                if (!detective.isTrained()) detective.train();
+                if (detective.detect(haar.getFOI())) cout << "Found David" << endl;
+                else                                 cout << "Searching..." << endl;
+                
                 break;
             }
             case(s_Select):
