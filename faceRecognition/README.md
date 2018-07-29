@@ -24,6 +24,7 @@ Histogram Equalization helps diminish the influence of varied light conditions.
 
 
 # Revision 2 Cleanup To Do (revision.cpp)
+- [ ] Current status: training seemingly goes fine BUT haven't been able to yield any positive matches like before...?
 - [ ] Graphically represent conditioning and layers
 - [X] HoG sampling
      - [X] FaceIdentifier::writeImage()
