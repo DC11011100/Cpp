@@ -15,10 +15,14 @@
 #define PATH_FACE_CASCADE "./HAAR_faceData/haarcascade_frontalface_alt.xml"
 #define FILENAME_SESSION_DATA "info.txt"
 #define PATH_SAMPLE_DIR "training_data"
+
+#define PATH_SAVE_MODEL "myFace.yml"
+
 #define DEBUG
+//#define DEBUG_SHOW_SAMPLE
 
 #define FACE_INPUT_WINDOW Size(128, 128)
-#define HOG_STRIDE_WINDOW Size(32, 32)
+#define HOG_STRIDE_WINDOW Size(8, 8)
 #define HOG_STRIDE_PADDING Size(0, 0)
 
 
@@ -65,9 +69,9 @@ class FaceIdentifier
                 vector < float > descriptors;
                 Mat regularized_foi; 
                
-                // Resize input faces to same size to maintain constant dimensionality of input layer 
+                // Resize input faces to same size to maintain constant dimensionality of input layer
                 resize(foi, regularized_foi, FACE_INPUT_WINDOW);
-                hog.winSize = FACE_INPUT_WINDOW;
+                hog.winSize = regularized_foi.size();
                 hog.compute( regularized_foi, descriptors, HOG_STRIDE_WINDOW, HOG_STRIDE_PADDING );
 
                 // Associate the computed HOG with a +/- value label for SVM
@@ -78,6 +82,34 @@ class FaceIdentifier
                 imshow("HOG Visual", get_hogdescriptor_visu(regularized_foi, descriptors, regularized_foi.size() ));
 #endif
                 return true;
+            }
+
+            int size() 
+            {
+                CV_Assert(hog_descriptors.size() == labels.size());
+                return labels.size();
+            }
+
+            void dump()
+            {
+                cout << "Dumping HOG Descriptors for batch" << endl;
+                for (int i = 0; i < hog_descriptors.size(); i++)
+                {
+                    Mat hog = hog_descriptors[i];
+                    string sign = labels[i] > 0 ? "+" : "-";
+                    if (labels[i] == 0) sign = "0";
+                    cout << "(" << sign << ")" << " Sample #" << i 
+                         << " -- " << hog.rows << "x" << hog.cols;
+                    
+                    // Dump the descriptor. It will only have one row, but a big one! So, just average 
+                    // and print that as some distinctive metric
+                    double sum = 0;
+                    for (int j = 0; j < hog.rows; j++)
+                    {
+                        sum += hog.at<float>(i,0);
+                    }
+                    cout << " -- " << "Avg:" << sum << endl;
+                }
             }
         };
 
@@ -136,7 +168,7 @@ class FaceIdentifier
             svm = SVM::create();
             svm->setCoef0(0.0);
             svm->setDegree(3);
-            svm->setTermCriteria(TermCriteria( CV_TERMCRIT_ITER+CV_TERMCRIT_EPS, 1000, 1e-3 ));
+            svm->setTermCriteria(TermCriteria( TermCriteria::MAX_ITER + TermCriteria::EPS, 1000, 1e-3 ));
             svm->setGamma(0);
             svm->setKernel(SVM::LINEAR);
             svm->setNu(0.5);
@@ -203,7 +235,6 @@ class FaceIdentifier
             svm->load(path_savefile);
         }
         
-        // TODO
         // Desc: Saves post-conditioned sample image to session dir and appends corresponding HoG to batch
         void sample(bool isPositive, const Mat & cropped_face)
         {
@@ -217,7 +248,7 @@ class FaceIdentifier
                 cout << "p-count = " << ++positive_count << endl;
                 imwrite(session_dir + "/positive/foi-" + to_string(positive_count) + img_ext, cropped_face);
 
-#ifdef DEBUG
+#if defined(DEBUG) && defined(DEBUG_SHOW_SAMPLE)
                 imshow( "Sample (+) #" + to_string(positive_count), cropped_face);
 #endif
             } else
@@ -225,7 +256,7 @@ class FaceIdentifier
                 cout << "n-count = " << ++negative_count << endl;
                 imwrite(session_dir + "/negative/foi-" + to_string(negative_count) + img_ext, cropped_face);
 
-#ifdef DEBUG
+#if defined(DEBUG) && defined(DEBUG_SHOW_SAMPLE)
                 imshow("Sample (-) #" + to_string(negative_count) , cropped_face);
 #endif
             }                          
@@ -249,6 +280,10 @@ class FaceIdentifier
 
         void train()
         {
+#ifdef DEBUG
+            batch.dump();
+#endif
+            
             // Make sure data can be mapped to classifier dimensions, set as current batch and train
             Mat batch_inputL1; // Updated with compat batch to make hog data input-layer compatible
             compatBatch(batch_inputL1, batch.hog_descriptors);
@@ -280,19 +315,20 @@ class FaceIdentifier
             svm_coefficients.resize(svectors.cols + 1);
             memcpy(&svm_coefficients[0], svectors.ptr(), svectors.cols*sizeof(svm_coefficients[0]));
             svm_coefficients[svectors.cols] = (float)-rho;
-
+            
             // Set the coeffecients and SVM HOG interpreter 
             hog_detector->setSVMDetector( svm_coefficients );
             trained = true;
+            save(PATH_SAVE_MODEL);
             
             
         }
-
+        
         bool isTrained()
         {
             return trained;
         }
-
+        
         void save(const string & path_savefile)
         {
             svm->save(path_savefile);
@@ -302,10 +338,22 @@ class FaceIdentifier
         {
             if (conditioned_face.empty()) return false;
 
+#ifdef DEBUG
+            imshow("Detective View", conditioned_face);
+#endif
+
             // Filler data to satisfy detectMultiScale call which typically operates on an entire image
             // However, in this case the source image is just a face in question
             vector < Rect > match_locations;
             hog_detector->detectMultiScale( conditioned_face, match_locations);
+
+            vector< Rect> detections;
+            vector < double > fweights;
+            hog_detector->detectMultiScale( conditioned_face, detections, fweights );
+#ifdef DEBUG
+            cout << "[detect] Locations# = " << match_locations.size() << endl;
+            cout << "[detect] Detections# = " << detections.size() << endl;
+#endif
             
             if      (0 == match_locations.size()) return false;
             else if (1 == match_locations.size()) return true;
@@ -314,9 +362,8 @@ class FaceIdentifier
                 warning(__func__, "Multiple matches in an image which should just be a single face");
                 return false;
             }
-           
-           
         }
+    
 };
 
 
@@ -435,6 +482,7 @@ string getStateName(State_t state)
         case s_Exit   : return "Exiting";
         default       : error(__FUNCTION__, "Corrupted state!");
     }
+    return "Corrupted";
 }
 
 // State transitions
