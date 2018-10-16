@@ -40,6 +40,7 @@ Histogram Equalization helps diminish the influence of varied light conditions.
 - [ ] Make desctructors for all classes
 - [ ] Clean up any memory leaks
 - [ ] Re-factor in SVM load capability
+- [ ] Fix issue with false positives. SEE compat batch, its possible not formatting the input batch matrix correctly to d      to differentiate the ositive and negative samples.
 
 # Improvements
 - [ ] Transform colorspace to YCbCr to separate light intensity. Only equalize intensity then convert back to RGB for processing
