@@ -19,6 +19,7 @@
 #define PATH_SAVE_MODEL "myFace.yml"
 
 #define DEBUG
+#define DEBUG_STEP
 //#define DEBUG_SHOW_SAMPLE
 
 #define FACE_INPUT_WINDOW Size(128, 128)
@@ -66,7 +67,7 @@ class FaceIdentifier
                 if (foi.empty()) return false;
 
                 HOGDescriptor hog;
-                vector < float > descriptors;
+                vector <float> descriptors;
                 Mat regularized_foi; 
                
                 // Resize input faces to same size to maintain constant dimensionality of input layer
@@ -75,7 +76,7 @@ class FaceIdentifier
                 hog.compute( regularized_foi, descriptors, HOG_STRIDE_WINDOW, HOG_STRIDE_PADDING );
 
                 // Associate the computed HOG with a +/- value label for SVM
-                hog_descriptors.push_back( Mat( descriptors ).clone() );
+                hog_descriptors.push_back( Mat(descriptors).clone() );
                 labels.push_back(sample_type ? +1 : -1);
 
 #ifdef DEBUG
@@ -151,15 +152,16 @@ class FaceIdentifier
             batch_inputL1 = Mat(rows, cols, CV_32FC1);
             
             vector <Mat>::const_iterator itr = hog_descriptors.begin();
-            for( int i = 0 ; itr != hog_descriptors.end() ; ++itr, ++i )
+            for( int i = 0 ; i < hog_descriptors.size() ; i++ )
             {
-                CV_Assert( itr->cols == 1 || itr->rows == 1 );
-                if( itr->cols == 1 ) {
-                    transpose( *(itr), tmp );
-                    tmp.copyTo( batch_inputL1.row( i ) );
-                } else if( itr->rows == 1 )
+                const Mat & d = hog_descriptors[i];
+                CV_Assert( d.cols == 1 || d.rows == 1 );
+                if( d.cols == 1 ) {
+                    transpose( d , tmp );
+                    tmp.copyTo( batch_inputL1.row(i) );
+                } else if( d.rows == 1 )
                 {
-                    itr->copyTo( batch_inputL1.row( i ) );
+                    d.copyTo( batch_inputL1.row(i) );
                 }
             }
         } 
@@ -344,16 +346,9 @@ class FaceIdentifier
 
             // Filler data to satisfy detectMultiScale call which typically operates on an entire image
             // However, in this case the source image is just a face in question
-            vector < Rect > match_locations;
-            hog_detector->detectMultiScale( conditioned_face, match_locations);
+            vector < Point > match_locations;
+            hog_detector->detect( conditioned_face, match_locations);
 
-            vector< Rect> detections;
-            vector < double > fweights;
-            hog_detector->detectMultiScale( conditioned_face, detections, fweights );
-#ifdef DEBUG
-            cout << "[detect] Locations# = " << match_locations.size() << endl;
-            cout << "[detect] Detections# = " << detections.size() << endl;
-#endif
             
             if      (0 == match_locations.size()) return false;
             else if (1 == match_locations.size()) return true;
@@ -410,7 +405,7 @@ class HaarClassifier
                                  0|CV_HAAR_SCALE_IMAGE, 
                                  Size(30, 30));
     }
-
+    
     public:
         HaarClassifier(string path2coefficients = "")
         {
@@ -467,6 +462,12 @@ class HaarClassifier
         {
             return mcurrent_frame_conditioned;
         }
+
+        void saveFrame(const string & path)
+        {
+            imwrite(path, mcurrent_frame_conditioned);
+        }
+
 };
 
 
@@ -602,6 +603,14 @@ int main(int argc, char** argv)
 
                         break;
                     }
+                    case 'f':
+                    {
+                        static int test_count = 0;
+                        string tmp = "test_samples/t";
+                        haar.saveFrame(tmp + to_string(test_count++) + ".png");
+                        break;
+                    }
+                       
                 }
                 break;
             }
