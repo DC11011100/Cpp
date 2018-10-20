@@ -23,7 +23,7 @@
 //#define DEBUG_SHOW_SAMPLE
 
 #define FACE_INPUT_WINDOW Size(128, 128)
-#define HOG_STRIDE_WINDOW Size(8, 8)
+#define HOG_STRIDE_WINDOW Size(32, 32)
 #define HOG_STRIDE_PADDING Size(0, 0)
 
 
@@ -170,7 +170,7 @@ class FaceIdentifier
             svm = SVM::create();
             svm->setCoef0(0.0);
             svm->setDegree(3);
-            svm->setTermCriteria(TermCriteria( TermCriteria::MAX_ITER + TermCriteria::EPS, 1000, 1e-3 ));
+            svm->setTermCriteria(TermCriteria( CV_TERMCRIT_ITER + CV_TERMCRIT_EPS, 1000, 1e-3 ));
             svm->setGamma(0);
             svm->setKernel(SVM::LINEAR);
             svm->setNu(0.5);
@@ -349,14 +349,18 @@ class FaceIdentifier
             vector < Point > match_locations;
             hog_detector->detect( conditioned_face, match_locations);
 
-            
+#ifdef DEBUG
+            printf("Found this many Davids x%d\n", match_locations.size());
+#endif
+             
             if      (0 == match_locations.size()) return false;
             else if (1 == match_locations.size()) return true;
             else
             {
-                warning(__func__, "Multiple matches in an image which should just be a single face");
+                warning(__func__, "Multiple matches from a single input face");
                 return false;
             }
+
         }
     
 };
@@ -456,6 +460,16 @@ class HaarClassifier
             }
 
             return regularized_foi;
+        }
+
+        vector < Mat > getFaces()
+        {
+            vector < Mat > faces(vfaces_in_frame.size());
+            for (int i = 0; i < faces.size(); i++)
+            {
+                resize(mcurrent_frame_conditioned(vfaces_in_frame[i]), faces[i], FACE_INPUT_WINDOW);
+            }
+            return faces;
         }
         
         const Mat & getFrame()
@@ -617,9 +631,14 @@ int main(int argc, char** argv)
             case(s_Detect):
             {
                 if (!detective.isTrained()) detective.train();
-                if (detective.detect(haar.getFOI())) cout << "Found David" << endl;
-                else                                 cout << "Searching..." << endl;
+
+                // Try to match all faces found in the frame
+                int match_count = 0;
+                vector <Mat> faces = haar.getFaces();
+                for (const Mat & face : faces) if (detective.detect(face)) match_count++;
                 
+                printf("Davids found among faces -- [%d/%d]\n", match_count, faces.size()); 
+                 
                 break;
             }
             case(s_Select):
