@@ -10,5 +10,5 @@ cleaner:
 	rm -rf ./build_FRMachine ./build_FRMachine.dSYM ./revision ./revision.dSYM ./myface_SVMdetector.yml ./training_samples/info.txt
 	rm -f ./training_samples/*.png
 	printf "Number of p-samples = 0\nNumber of n-samples = 0\n" > ./training_samples/info.txt
-sample:
-	g++ -std=c++14 -ggdb `pkg-config --cflags --libs opencv` train_HOGs.cpp -o sample
+sample: train_HOG.cpp
+	g++ -std=c++14 -ggdb -g3 `pkg-config --cflags --libs opencv` train_HOG.cpp -o sample
